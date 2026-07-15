@@ -1,11 +1,12 @@
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MailerOptions } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { join } from 'path';
 
 export const MailerParams = {
   imports: [ConfigModule],
   inject: [ConfigService],
-  useFactory: async (config: ConfigService) =>
+  useFactory: async (config: ConfigService): Promise<MailerOptions> =>
     config.get('SMTP_HOST')
       ? {
           transport: {
