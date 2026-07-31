@@ -28,6 +28,15 @@
         "tsConfigPath": "apps/cron/tsconfig.app.json"
       }
     },
+    "importer": {
+      "type": "application",
+      "root": "apps/importer",
+      "entryFile": "main",
+      "sourceRoot": "apps/importer/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/importer/tsconfig.app.json"
+      }
+    },
     "shared": {
       "type": "library",
       "root": "libs/shared",

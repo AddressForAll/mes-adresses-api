@@ -20,7 +20,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Runtime libs matching the builder's `canvas`/`sharp` native deps.
+# `ca-certificates` is needed by the Overture importer: DuckDB's httpfs makes
+# its own TLS calls to the public S3 bucket and fails with "Problem with the
+# SSL CA cert" without the system trust store (node's is bundled, DuckDB's is not).
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
     && rm -rf /var/lib/apt/lists/*
 

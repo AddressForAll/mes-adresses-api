@@ -10,7 +10,7 @@ import {
 
 import { ValidatorBal } from '@/shared/validators/validator_bal.validator';
 import { Position } from '@/shared/entities/position.entity';
-import { ValidatorCogCommune } from '@/shared/validators/cog.validator';
+import { ValidatorTerritoryCode } from '@/shared/validators/territory_code.validator';
 
 export class CreateToponymeDTO {
   @IsNotEmpty({ message: 'voie_nom:Le champ nom est obligatoire' })
@@ -24,7 +24,7 @@ export class CreateToponymeDTO {
   @ApiProperty({ required: false, nullable: true })
   nomAlt: Record<string, string>;
 
-  @Validate(ValidatorCogCommune, ['commune_deleguee'])
+  @Validate(ValidatorTerritoryCode, ['commune_deleguee'])
   @ApiProperty({ required: false, nullable: true })
   communeDeleguee?: string;
 

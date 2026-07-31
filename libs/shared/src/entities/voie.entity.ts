@@ -69,6 +69,15 @@ export class Voie extends GlobalEntity {
   @Column('text', { nullable: true })
   comment?: string | null;
 
+  /**
+   * Overture Maps GERS id of the transportation segment this voie came from,
+   * when imported from Overture. Stable across Overture releases, so it is the
+   * key for a later re-sync. Null for voies from any other source.
+   */
+  @ApiProperty({ required: false, type: String })
+  @Column('uuid', { name: 'gers_id', nullable: true })
+  gersId?: string | null;
+
   @ApiProperty({ type: () => BaseLocale })
   @ManyToOne(() => BaseLocale, (baseLocale) => baseLocale.voies, {
     onDelete: 'CASCADE',

@@ -246,6 +246,8 @@ export class NumeroService {
         parcelles: rawNumero.parcelles || [],
         certifie: rawNumero.certifie || false,
         communeDeleguee: rawNumero.communeDeleguee,
+        // Carried through by the Overture importer; absent for every other source.
+        ...(rawNumero.gersId && { gersId: rawNumero.gersId }),
         ...(rawNumero.updatedAt && { updatedAt: rawNumero.updatedAt }),
         ...(rawNumero.createdAt && { createdAt: rawNumero.createdAt }),
       }));

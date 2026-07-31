@@ -15,7 +15,7 @@ import {
 
 import { Position } from '@/shared/entities/position.entity';
 import { ValidatorBal } from '@/shared/validators/validator_bal.validator';
-import { ValidatorCogCommune } from '@/shared/validators/cog.validator';
+import { ValidatorTerritoryCode } from '@/shared/validators/territory_code.validator';
 
 export class UpdateNumeroDTO {
   @IsOptional()
@@ -59,7 +59,7 @@ export class UpdateNumeroDTO {
   certifie?: boolean;
 
   @IsOptional()
-  @Validate(ValidatorCogCommune, ['commune_deleguee'])
+  @Validate(ValidatorTerritoryCode, ['commune_deleguee'])
   @ApiProperty({ required: false, nullable: false })
   communeDeleguee?: string | null;
 
