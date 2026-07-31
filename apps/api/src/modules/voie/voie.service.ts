@@ -183,6 +183,8 @@ export class VoieService {
         typeNumerotation: rawVoie.typeNumerotation,
         trace: rawVoie.trace || null,
         ...(rawVoie.codeVoie && { codeVoie: rawVoie.codeVoie }),
+        // Carried through by the Overture importer; absent for every other source.
+        ...(rawVoie.gersId && { gersId: rawVoie.gersId }),
         ...(rawVoie.updatedAt && { updatedAt: rawVoie.updatedAt }),
         ...(rawVoie.createdAt && { createdAt: rawVoie.createdAt }),
       }));
@@ -399,6 +401,70 @@ export class VoieService {
     const centroid = turf.centroid(voie.trace)?.geometry;
     const bbox = turf.bbox(voie.trace);
     await this.voiesRepository.update({ id: voie.id }, { centroid, bbox });
+  }
+
+  /**
+   * Set-based equivalent of calling calcCentroidAndBbox() for every voie of a
+   * base locale, in three queries instead of one round trip per voie.
+   *
+   * The per-voie path is fine for interactive edits but not for a bulk import:
+   * a county-sized import creates thousands of voies, and issuing an unbounded
+   * Promise.all of one SELECT + one UPDATE each saturates the connection pool.
+   *
+   * Computed entirely in PostGIS. For a set of points ST_Extent agrees with
+   * turf.bbox() to floating-point noise, so results match the per-voie path.
+   */
+  public async calcCentroidAndBboxMany(balId: string): Promise<void> {
+    // NUMERIQUE voies: derived from their numeros' positions.
+    await this.voiesRepository.query(
+      `UPDATE voies v
+          SET centroid = agg.centroid,
+              bbox = agg.bbox
+         FROM (
+           SELECT n.voie_id,
+                  ST_Centroid(ST_Union(p.point)) AS centroid,
+                  ARRAY[
+                    ST_XMin(ST_Extent(p.point)), ST_YMin(ST_Extent(p.point)),
+                    ST_XMax(ST_Extent(p.point)), ST_YMax(ST_Extent(p.point))
+                  ]::float8[] AS bbox
+             FROM numeros n
+             JOIN positions p ON p.numero_id = n.id
+            WHERE n.bal_id = $1 AND n.deleted_at IS NULL
+            GROUP BY n.voie_id
+         ) agg
+        WHERE v.id = agg.voie_id
+          AND v.type_numerotation = 'numerique'`,
+      [balId],
+    );
+
+    // NUMERIQUE voies with no positioned numero at all: explicit NULL, matching
+    // the else-branch of calcCentroidAndBboxWithNumeros.
+    await this.voiesRepository.query(
+      `UPDATE voies v
+          SET centroid = NULL, bbox = NULL
+        WHERE v.bal_id = $1
+          AND v.type_numerotation = 'numerique'
+          AND NOT EXISTS (
+            SELECT 1 FROM numeros n
+              JOIN positions p ON p.numero_id = n.id
+             WHERE n.voie_id = v.id AND n.deleted_at IS NULL
+          )`,
+      [balId],
+    );
+
+    // METRIQUE voies: derived from the trace.
+    await this.voiesRepository.query(
+      `UPDATE voies
+          SET centroid = ST_Centroid(trace),
+              bbox = ARRAY[
+                ST_XMin(trace), ST_YMin(trace),
+                ST_XMax(trace), ST_YMax(trace)
+              ]::float8[]
+        WHERE bal_id = $1
+          AND type_numerotation = 'metrique'
+          AND trace IS NOT NULL`,
+      [balId],
+    );
   }
 
   createQueryVoieMetas: SelectQueryBuilder<Voie> = this.voiesRepository

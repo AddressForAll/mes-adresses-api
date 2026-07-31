@@ -10,6 +10,7 @@ export enum ImportTypeEnum {
   API_DEPOT = 'api-depot',
   BAN = 'ban',
   CSV = 'csv',
+  OVERTURE = 'overture',
 }
 
 export enum StatusBaseLocalEnum {
@@ -77,9 +78,36 @@ export class BaseLocale extends GlobalEntity {
   @Column('json', { name: 'commune_noms_alt', nullable: true })
   communeNomsAlt: Record<string, string> | null;
 
+  /**
+   * Opaque territory code. Historically a French INSEE/COG code; since the
+   * Overture importer it may also be a foreign administrative code (US place
+   * FIPS, Brazilian IBGE, …) or a synthetic code derived from an Overture
+   * division id. Which values are accepted is decided by ValidatorTerritoryCode
+   * according to COUNTRY_PROFILE — see libs/shared/src/validators.
+   */
   @ApiProperty()
-  @Column('varchar', { nullable: false, length: 5 })
+  @Column('varchar', { nullable: false, length: 16 })
   commune: string;
+
+  /**
+   * Overture Maps division (GERS) id this BAL's addresses were imported from,
+   * when populated by the Overture importer. Null for every other import path.
+   */
+  @ApiProperty({ required: false, type: String })
+  @Column('uuid', { name: 'source_division_id', nullable: true })
+  sourceDivisionId: string | null;
+
+  /**
+   * ISO 3166-1 alpha-2 country code, lowercase. Drives country-dependent
+   * frontend behaviour (basemaps, cadastre availability, commune search) —
+   * see mes-adresses-CV's `src/lib/countries`. Defaults to 'fr' for every
+   * BAL created before this field existed. The Overture importer sets it
+   * from `OvertureDivision.country`; every other creation path leaves the
+   * default.
+   */
+  @ApiProperty()
+  @Column('varchar', { nullable: false, length: 2, default: 'fr' })
+  country: string;
 
   @ApiProperty()
   @Column('text', { nullable: true, array: true })

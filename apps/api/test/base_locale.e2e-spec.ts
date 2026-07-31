@@ -58,6 +58,9 @@ const baseLocalePublicProperties = [
   'deletedAt',
   'habilitationId',
   'sync',
+  // Set only by the Overture importer; null for every other creation path.
+  'sourceDivisionId',
+  'country',
 ];
 
 describe('BASE LOCAL MODULE', () => {

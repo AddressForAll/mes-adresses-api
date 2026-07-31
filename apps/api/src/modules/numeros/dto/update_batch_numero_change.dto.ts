@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 
 import { PositionTypeEnum } from '@/shared/entities/position.entity';
-import { ValidatorCogCommune } from '@/shared/validators/cog.validator';
+import { ValidatorTerritoryCode } from '@/shared/validators/territory_code.validator';
 import { ValidatorBal } from '@/shared/validators/validator_bal.validator';
 
 export class UpdateBatchNumeroChangeDTO {
@@ -44,7 +44,7 @@ export class UpdateBatchNumeroChangeDTO {
   certifie?: boolean;
 
   @IsOptional()
-  @Validate(ValidatorCogCommune, ['commune_deleguee'])
+  @Validate(ValidatorTerritoryCode, ['commune_deleguee'])
   @ApiProperty({ required: false, nullable: false })
   communeDeleguee?: string | null;
 }

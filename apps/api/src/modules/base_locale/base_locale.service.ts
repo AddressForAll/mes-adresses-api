@@ -197,6 +197,7 @@ export class BaseLocaleService {
   public async createDemo({
     commune,
     populate,
+    country,
   }: CreateDemoBaseLocaleDTO): Promise<BaseLocale> {
     // Insere la nouvelle Bal de demo
     const banId: string =
@@ -206,6 +207,7 @@ export class BaseLocaleService {
       banId,
       token: generateBase62String(20),
       commune,
+      ...(country && { country }),
       nom: `Adresses de ${getCommuneActuelle(commune)?.nom} [démo]`,
       status: StatusBaseLocalEnum.DEMO,
       settings: {
@@ -468,13 +470,10 @@ export class BaseLocaleService {
     await this.voieService.importMany(baseLocale, voies);
     await this.toponymeService.importMany(baseLocale, toponymes);
     await this.numeroService.importMany(baseLocale, numeros);
-    // On calcule les centroid des voies
-    const voiesCreated: Voie[] = await this.voieService.findMany({
-      balId: baseLocale.id,
-    });
-    await Promise.all(
-      voiesCreated.map(({ id }) => this.voieService.calcCentroidAndBbox(id)),
-    );
+    // On calcule les centroid des voies.
+    // Calcul ensembliste (3 requêtes) plutôt qu'un aller-retour par voie : un
+    // import de la taille d'un comté crée des milliers de voies.
+    await this.voieService.calcCentroidAndBboxMany(baseLocale.id);
     // On retourne la Bal
     return baseLocale;
   }
