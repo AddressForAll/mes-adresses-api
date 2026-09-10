@@ -18,6 +18,7 @@ import {
   emptyRejectionReport,
 } from '@/shared/modules/overture/overture.types';
 import { localeForCountry } from '@/shared/modules/overture/utils/street-name.util';
+import { territoryCodeFromDivision } from '@/shared/modules/territory/territory-code.util';
 import { BaseLocaleService } from '@/modules/base_locale/base_locale.service';
 
 import { optionalInt, requireString } from '../cli/args';
@@ -274,14 +275,9 @@ export class ImportDivisionCommand {
     return bal;
   }
 
-  /**
-   * Deterministic opaque territory code for a --create-bal run: country plus
-   * the first 8 hex digits of the division id. Stable across re-runs, and
-   * within the 16 chars `bases_locales.commune` allows.
-   */
+  /** Default territory code for a --create-bal run. */
   private deriveTerritoryCode(division: OvertureDivision): string {
-    const country = (division.country || 'XX').toUpperCase();
-    return `${country}-${division.id.replace(/-/g, '').slice(0, 8)}`;
+    return territoryCodeFromDivision(division.country, division.id);
   }
 
   private editorUrl(bal: BaseLocale): string {

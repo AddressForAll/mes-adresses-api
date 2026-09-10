@@ -10,7 +10,7 @@ import {
   BaseLocale,
   StatusBaseLocalEnum,
 } from '@/shared/entities/base_locale.entity';
-import { isCommune } from '@/shared/utils/cog.utils';
+import { isTerritoryCode } from '@/shared/validators/territory_code.validator';
 
 import { checkValidEmail } from '@/modules/base_locale/utils/base_locale.utils';
 import { SearchBaseLocalQuery } from '../dto/search_base_locale.query';
@@ -57,7 +57,9 @@ export class SearchQueryPipe implements PipeTransform {
     }
 
     if (query.commune) {
-      if (typeof query.commune === 'string' && isCommune(query.commune)) {
+      // Profile-aware: under COUNTRY_PROFILE=generic a US territory code must
+      // be searchable too, or /new cannot find BALs that already exist for it.
+      if (isTerritoryCode(query.commune)) {
         res.filters.commune = query.commune;
       } else {
         throw new HttpException(
