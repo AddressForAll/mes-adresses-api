@@ -5,11 +5,33 @@ import {
 import * as proj from '@etalab/project-legal';
 import { Point } from '@turf/turf';
 import { getValidateurBalColumnErrors } from '../utils/validateur-bal.utils';
+import {
+  CountryProfileEnum,
+  getCountryProfile,
+} from './territory_code.validator';
 
 function harmlessProj(coordinates: number[]) {
   try {
     return proj(coordinates);
   } catch {}
+}
+
+/**
+ * Plain WGS84 bounds. Used instead of the French legal projection under
+ * COUNTRY_PROFILE=generic: project-legal only knows French territories (Lambert
+ * 93 and the outre-mer CRSs) and returns null anywhere else, which rejected
+ * every position outside France — so no numero of an Overture-imported BAL
+ * could be created or edited through the API.
+ */
+function isWgs84([lon, lat]: number[]): boolean {
+  return (
+    Number.isFinite(lon) &&
+    Number.isFinite(lat) &&
+    lon >= -180 &&
+    lon <= 180 &&
+    lat >= -90 &&
+    lat <= 90
+  );
 }
 
 @ValidatorConstraint({ name: 'pointCoord', async: true })
@@ -21,6 +43,9 @@ export class PointValidator implements ValidatorConstraintInterface {
         typeof point.coordinates[1] !== 'number'
       ) {
         return false;
+      }
+      if (getCountryProfile() === CountryProfileEnum.GENERIC) {
+        return isWgs84(point.coordinates);
       }
       const projectedCoordInMeters = harmlessProj(point.coordinates);
       if (!projectedCoordInMeters) {
