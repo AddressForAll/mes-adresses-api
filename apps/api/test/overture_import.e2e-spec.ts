@@ -212,6 +212,29 @@ describe('OVERTURE IMPORT', () => {
       const bal = await repositories.bals.findOneBy({ id: balId });
       expect(bal.sourceDivisionId).toBe('197cfe35-a268-4674-b1ba-b68dc1b3ee6a');
     });
+
+    it('falls back to the stored name for a code outside the COG', async () => {
+      const balId = await createBal({
+        nom: 'overture',
+        commune: 'US-197cfe35',
+      });
+      let bal = await repositories.bals.findOneBy({ id: balId });
+      expect(bal.communeNom).toBeNull();
+
+      await repositories.bals.update(
+        { id: balId },
+        { communeNom: 'Fresno County' },
+      );
+      bal = await repositories.bals.findOneBy({ id: balId });
+      expect(bal.communeNom).toBe('Fresno County');
+    });
+
+    it('prefers the COG name over a stored one for a French commune', async () => {
+      const balId = await createBal({ nom: 'bal', commune: '08053' });
+      await repositories.bals.update({ id: balId }, { communeNom: 'Stale' });
+      const bal = await repositories.bals.findOneBy({ id: balId });
+      expect(bal.communeNom).toBe('Bazeilles');
+    });
   });
 
   describe('ValidatorTerritoryCode', () => {

@@ -71,8 +71,16 @@ export class BaseLocale extends GlobalEntity {
   @Column('text', { nullable: false })
   nom: string;
 
+  /**
+   * Display name of the territory. For a French commune it is always the
+   * current COG name, resolved on load, so a renamed or merged commune never
+   * shows a stale value. The stored column only matters for territory codes
+   * outside the COG (a US county, say), which have no lookup. The Overture
+   * importer fills it from the division name.
+   */
   @ApiProperty({ required: false, type: String })
-  communeNom?: string;
+  @Column('text', { name: 'commune_nom', nullable: true })
+  communeNom?: string | null;
 
   @ApiProperty()
   @Column('json', { name: 'commune_noms_alt', nullable: true })
@@ -155,6 +163,6 @@ export class BaseLocale extends GlobalEntity {
 
   @AfterLoad()
   getCommuneNom?(): void {
-    this.communeNom = getCommune(this.commune)?.nom;
+    this.communeNom = getCommune(this.commune)?.nom ?? this.communeNom;
   }
 }

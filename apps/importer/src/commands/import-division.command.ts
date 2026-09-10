@@ -135,6 +135,9 @@ export class ImportDivisionCommand {
       {
         importType: ImportTypeEnum.OVERTURE,
         sourceDivisionId: division.id,
+        // Only codes outside the French COG need it (see BaseLocale.communeNom),
+        // but it is the same division either way.
+        communeNom: division.name,
       },
     );
 
