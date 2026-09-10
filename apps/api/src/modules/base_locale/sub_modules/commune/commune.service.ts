@@ -14,10 +14,11 @@ import {
   CountryProfileEnum,
   getCountryProfile,
 } from '@/shared/validators/territory_code.validator';
+import { TerritoryService } from '@/shared/modules/territory/territory.service';
 
 @Injectable()
 export class CommuneService {
-  constructor() {}
+  constructor(private territoryService: TerritoryService) {}
 
   /**
    * Descriptor for a territory whose code is not in the French COG — an
@@ -26,14 +27,18 @@ export class CommuneService {
    * The editor calls this endpoint while opening a BAL and treats a failure as
    * fatal, so 404-ing here makes such a BAL impossible to open at all. Every
    * capability advertised is French-specific (cadastre parcels, IGN map styles,
-   * communes déléguées), so they are simply reported as unavailable. The
-   * headline name shown in the editor comes from `bases_locales.nom`, not from
-   * here.
+   * communes déléguées), so they are simply reported as unavailable.
+   *
+   * A code from a territory catalog (see TerritoryService) also gets its real
+   * name and bounding box — the bbox is what positions the map on a BAL that
+   * has no voies yet. Any other code degrades to itself as the name.
    */
   private getForeignTerritoryExtraData(codeCommune: string): CommuneDTO {
+    const territory = this.territoryService.findTerritory(codeCommune);
     return {
       code: codeCommune,
-      nom: codeCommune,
+      nom: territory?.nom ?? codeCommune,
+      ...(territory && { bbox: territory.bbox }),
       communesDeleguees: [],
       hasCadastre: false,
       isCOM: false,

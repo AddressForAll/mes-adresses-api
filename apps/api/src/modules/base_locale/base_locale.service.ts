@@ -68,6 +68,7 @@ import { RecoverCommuneDTO } from './dto/recover_commune.dto';
 import { ExportCsvService } from '@/shared/modules/export_csv/export_csv.service';
 import { BalTree, formatterBAL } from '@ban-team/formatter-bal';
 import { Numero } from '@/shared/entities/numero.entity';
+import { TerritoryService } from '@/shared/modules/territory/territory.service';
 
 const KEY_POPULATE_BAL_ID = 'populateBalID';
 
@@ -91,6 +92,7 @@ export class BaseLocaleService {
     private exportCsvService: ExportCsvService,
     private configService: ConfigService,
     private cacheService: CacheService,
+    private territoryService: TerritoryService,
     private readonly logger: Logger,
   ) {}
 
@@ -208,7 +210,7 @@ export class BaseLocaleService {
       token: generateBase62String(20),
       commune,
       ...(country && { country }),
-      nom: `Adresses de ${getCommuneActuelle(commune)?.nom} [démo]`,
+      nom: `Adresses de ${this.getTerritoryName(commune)} [démo]`,
       status: StatusBaseLocalEnum.DEMO,
       settings: {
         languageGoalIgnored: false,
@@ -224,6 +226,15 @@ export class BaseLocaleService {
     }
     // On retourne la Bal de demo créé
     return newDemoBaseLocale;
+  }
+
+  /** French commune name, else a territory-catalog name, else the code itself. */
+  private getTerritoryName(commune: string): string {
+    return (
+      getCommuneActuelle(commune)?.nom ??
+      this.territoryService.findTerritory(commune)?.nom ??
+      commune
+    );
   }
 
   async extractAndPopulate(baseLocale: BaseLocale): Promise<BaseLocale> {

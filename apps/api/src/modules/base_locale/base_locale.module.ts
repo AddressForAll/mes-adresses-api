@@ -28,6 +28,7 @@ import { PopulateModule } from './sub_modules/populate/populate.module';
 import { ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@/shared/modules/cache/cache.module';
 import { QUEUE_NAME } from '@/shared/params/queue_name.const';
+import { TerritoryModule } from '@/shared/modules/territory/territory.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { QUEUE_NAME } from '@/shared/params/queue_name.const';
     TypeOrmModule.forFeature([BaseLocale]),
     PublicationModule,
     CacheModule,
+    TerritoryModule,
     BullModule.registerQueue({
       name: QUEUE_NAME,
       defaultJobOptions: {

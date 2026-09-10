@@ -4,6 +4,7 @@ import {
   ValidationArguments,
 } from 'class-validator';
 import { ValidatorCogCommune } from './cog.validator';
+import { isCommune } from '../utils/cog.utils';
 
 export enum CountryProfileEnum {
   /** Upstream behaviour: codes must exist in the French COG. */
@@ -48,6 +49,17 @@ export function resetCountryProfileCache(): void {
  * safe to embed in the BAL CSV's `cle_interop` without quoting.
  */
 const GENERIC_CODE_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{1,15}$/;
+
+/**
+ * Whether `value` is a territory code under the configured profile — for
+ * call sites that check a code outside class-validator (query pipes).
+ */
+export function isTerritoryCode(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  return getCountryProfile() === CountryProfileEnum.FR
+    ? isCommune(value)
+    : GENERIC_CODE_RE.test(value);
+}
 
 /**
  * Validates a territory code according to the configured country profile.

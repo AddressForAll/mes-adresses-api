@@ -36,4 +36,13 @@ export class CommuneDTO {
 
   @ApiProperty({ type: () => CommunePrecedenteDTO, isArray: true })
   communesDeleguees: CommunePrecedenteDTO[];
+
+  @ApiProperty({
+    type: Number,
+    isArray: true,
+    required: false,
+    description:
+      'Territory bounding box [xmin, ymin, xmax, ymax], for non-French territories only',
+  })
+  bbox?: number[];
 }
