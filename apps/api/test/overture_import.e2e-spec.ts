@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import * as request from 'supertest';
+import axios from 'axios';
+import MockAdapter from 'axios-mock-adapter';
 
 import { Numero } from '@/shared/entities/numero.entity';
 import { Voie, TypeNumerotationEnum } from '@/shared/entities/voie.entity';
@@ -52,6 +55,7 @@ describe('OVERTURE IMPORT', () => {
   };
   let baseLocaleService: BaseLocaleService;
   const transform = new OvertureTransformService();
+  const axiosMock = new MockAdapter(axios);
 
   beforeAll(async () => {
     await startPostgresContainer();
@@ -66,6 +70,7 @@ describe('OVERTURE IMPORT', () => {
   });
 
   afterEach(async () => {
+    axiosMock.reset();
     await deleteRepositories();
     resetCountryProfileCache();
     delete process.env.COUNTRY_PROFILE;
@@ -204,7 +209,10 @@ describe('OVERTURE IMPORT', () => {
     });
 
     it('records the source division and import type', async () => {
-      const balId = await createBal({ nom: 'overture', commune: 'US-197cfe35' });
+      const balId = await createBal({
+        nom: 'overture',
+        commune: 'US-197cfe35',
+      });
       await repositories.bals.update(
         { id: balId },
         { sourceDivisionId: '197cfe35-a268-4674-b1ba-b68dc1b3ee6a' },
@@ -234,6 +242,68 @@ describe('OVERTURE IMPORT', () => {
       await repositories.bals.update({ id: balId }, { communeNom: 'Stale' });
       const bal = await repositories.bals.findOneBy({ id: balId });
       expect(bal.communeNom).toBe('Bazeilles');
+    });
+  });
+
+  describe('BALs created from the territory selectors', () => {
+    const mockBanDistrict = (code: string) =>
+      axiosMock
+        .onGet(`${BAN_API_URL}/api/district/cog/${code}`)
+        .reply(200, {
+          response: [{ id: '00000000-0000-4000-8000-000000000000' }],
+        });
+
+    it('stores the catalog name of a territory at creation', async () => {
+      mockBanDistrict('US-197cfe35');
+      const { id } = await baseLocaleService.createOne({
+        nom: 'Addresses of Fresno County',
+        emails: ['clerk@example.org'],
+        commune: 'US-197cfe35',
+        country: 'us',
+      });
+
+      const bal = await repositories.bals.findOneBy({ id });
+      expect(bal.communeNom).toBe('Fresno County');
+      expect(bal.country).toBe('us');
+    });
+
+    it('names a demo BAL after its territory', async () => {
+      mockBanDistrict('US-197cfe35');
+      const { id } = await baseLocaleService.createDemo({
+        commune: 'US-197cfe35',
+        country: 'us',
+      });
+
+      const bal = await repositories.bals.findOneBy({ id });
+      expect(bal.nom).toBe('Adresses de Fresno County [démo]');
+      expect(bal.communeNom).toBe('Fresno County');
+    });
+
+    it('leaves commune_nom NULL for a code outside every catalog', async () => {
+      // Storing the raw code would make "no name yet" indistinguishable
+      // from a real name.
+      mockBanDistrict('BR-3550308');
+      const { id } = await baseLocaleService.createOne({
+        nom: 'São Paulo',
+        emails: ['clerk@example.org'],
+        commune: 'BR-3550308',
+      });
+
+      const bal = await repositories.bals.findOneBy({ id });
+      expect(bal.communeNom).toBeNull();
+    });
+
+    it('finds existing BALs by territory code under the generic profile', async () => {
+      process.env.COUNTRY_PROFILE = CountryProfileEnum.GENERIC;
+      resetCountryProfileCache();
+      await createBal({ nom: 'overture', commune: 'US-197cfe35' });
+
+      const response = await request(app.getHttpServer())
+        .get('/bases-locales/search')
+        .query({ commune: 'US-197cfe35', status: 'draft' })
+        .expect(200);
+
+      expect(response.body.count).toBe(1);
     });
   });
 

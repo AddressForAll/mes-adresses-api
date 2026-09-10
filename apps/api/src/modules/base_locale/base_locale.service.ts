@@ -168,6 +168,7 @@ export class BaseLocaleService {
     const entityToSave: BaseLocale = this.basesLocalesRepository.create({
       banId,
       ...createInput,
+      communeNom: this.getCatalogTerritoryName(createInput.commune),
       token: generateBase62String(20),
       status: StatusBaseLocalEnum.DRAFT,
       settings: {
@@ -209,6 +210,7 @@ export class BaseLocaleService {
       banId,
       token: generateBase62String(20),
       commune,
+      communeNom: this.getCatalogTerritoryName(commune),
       ...(country && { country }),
       nom: `Adresses de ${this.getTerritoryName(commune)} [démo]`,
       status: StatusBaseLocalEnum.DEMO,
@@ -226,6 +228,15 @@ export class BaseLocaleService {
     }
     // On retourne la Bal de demo créé
     return newDemoBaseLocale;
+  }
+
+  /**
+   * Name to store in `commune_nom` at creation: a territory-catalog name, or
+   * null. Never the raw code — NULL must keep meaning "no name yet" — and
+   * French communes need none, the COG name wins on load.
+   */
+  private getCatalogTerritoryName(commune: string): string | null {
+    return this.territoryService.findTerritory(commune)?.nom ?? null;
   }
 
   /** French commune name, else a territory-catalog name, else the code itself. */
