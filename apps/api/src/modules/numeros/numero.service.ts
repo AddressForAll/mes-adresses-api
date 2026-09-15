@@ -172,6 +172,7 @@ export class NumeroService {
       .distinctOn(['numeros.id'])
       .select('numeros.id', 'id')
       .addSelect('numeros.numero', 'numero')
+      .addSelect('numeros.numero_texte', 'numeroTexte')
       .addSelect('numeros.suffixe', 'suffixe')
       .addSelect('numeros.parcelles', 'parcelles')
       .addSelect('numeros.certifie', 'certifie')
@@ -227,7 +228,8 @@ export class NumeroService {
     rawNumeros: Partial<Numero>[],
   ): Promise<void> {
     const validRawNumeros: Partial<Numero>[] = rawNumeros.filter(
-      ({ voieId, numero }) => Boolean(voieId && Number.isInteger(numero)),
+      ({ voieId, numero }) =>
+        Boolean(voieId && (Number.isInteger(numero) || numero === null)),
     );
     // On transforme les raw en numeros
     const numeros = validRawNumeros
@@ -237,6 +239,7 @@ export class NumeroService {
         balId: baseLocale.id,
         banId: rawNumero.banId || uuid(),
         numero: rawNumero.numero,
+        numeroTexte: rawNumero.numeroTexte?.trim() || null,
         comment: rawNumero.comment,
         toponymeId: rawNumero.toponymeId,
         voieId: rawNumero.voieId,
@@ -312,6 +315,7 @@ export class NumeroService {
       banId: uuid(),
       voieId: voie.id,
       numero: createNumeroDto.numero,
+      numeroTexte: createNumeroDto.numeroTexte?.trim() || null,
       suffixe: createNumeroDto.suffixe
         ? normalizeSuffixe(createNumeroDto.suffixe)
         : null,

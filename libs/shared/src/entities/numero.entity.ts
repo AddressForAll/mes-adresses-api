@@ -43,9 +43,14 @@ export class Numero extends GlobalEntity {
   @Column('varchar', { length: 24, name: 'toponyme_id', nullable: true })
   toponymeId: string;
 
-  @ApiProperty()
-  @Column('int', { nullable: false })
-  numero: number;
+  @ApiProperty({ required: false, nullable: true, type: Number })
+  @Column('int', { nullable: true })
+  numero?: number | null;
+
+  /** Source designation when the address has no numeric house number. */
+  @ApiProperty({ required: false, nullable: true, type: String })
+  @Column('text', { name: 'numero_texte', nullable: true })
+  numeroTexte?: string | null;
 
   @ApiProperty()
   @Column('text', { nullable: true })
@@ -127,6 +132,9 @@ export class Numero extends GlobalEntity {
 
   @AfterLoad()
   getNumeroComplet?() {
-    this.numeroComplet = this.numero + ' ' + displaySuffix(this);
+    this.numeroComplet =
+      this.numero === null || this.numero === undefined
+        ? this.numeroTexte?.trim() || 's/n'
+        : `${this.numero} ${displaySuffix(this)}`.trim();
   }
 }

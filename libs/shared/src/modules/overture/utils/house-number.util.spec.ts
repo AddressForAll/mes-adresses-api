@@ -7,7 +7,11 @@ describe('parseHouseNumber', () => {
       ['0', 0],
       ['99998', 99998],
     ])('parses %s', (raw, numero) => {
-      expect(parseHouseNumber(raw)).toEqual({ status: 'ok', numero, suffixe: null });
+      expect(parseHouseNumber(raw)).toEqual({
+        status: 'ok',
+        numero,
+        suffixe: null,
+      });
     });
   });
 
@@ -54,6 +58,17 @@ describe('parseHouseNumber', () => {
         status: 'ok',
         numero: 10,
         suffixe: 'BIS',
+      });
+    });
+
+    it.each([
+      ['715 (ou 815)', 'starts with punctuation'],
+      ['10 complemento', 'is longer than nine characters'],
+    ])('drops a suffix that the edit API would reject: %s (%s)', (raw) => {
+      expect(parseHouseNumber(raw)).toEqual({
+        status: 'ok',
+        numero: Number.parseInt(raw, 10),
+        suffixe: null,
       });
     });
   });

@@ -62,7 +62,15 @@ function modelToRow(
   ).length; // eslint-disable-line camelcase
   row.numeros =
     numerosVoie.length > 0
-      ? numerosVoie.map((n) => String(n.numero) + (n.suffixe || '')).join(' ')
+      ? numerosVoie
+          .map(
+            (n) =>
+              n.numeroComplet ||
+              (n.numero === null
+                ? n.numeroTexte || 's/n'
+                : String(n.numero) + (n.suffixe || '')),
+          )
+          .join(' ')
       : '';
 
   for (const key in keysNomAlts) {

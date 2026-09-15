@@ -1,6 +1,8 @@
 export type NumeroInBbox = {
   id: string;
-  numero: number;
+  numero: number | null;
+  numeroTexte: string | null;
+  numeroComplet: string;
   suffixe: string;
   parcelles: string[];
   certifie: string;

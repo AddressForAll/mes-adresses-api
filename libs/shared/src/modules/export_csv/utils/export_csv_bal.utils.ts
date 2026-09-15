@@ -28,10 +28,12 @@ type BanIdsType = {
 type RowType = {
   banIds: BanIdsType;
   codeCommune: string;
+  communeNom?: string;
   communeDeleguee?: string;
   communeNomsAlt: Record<string, string>;
   codeVoie: string;
-  numero: number;
+  numero: number | null;
+  numeroTexte?: string;
   suffixe?: string;
   certifie?: boolean;
   nomVoie: string;
@@ -74,9 +76,10 @@ type CsvRowType = {
 function formatCleInterop(
   codeCommune: string,
   codeVoie: string,
-  numero: number,
+  numero: number | null,
   suffixe: string,
 ): string {
+  if (numero === null || numero === undefined) return '';
   const str = `${codeCommune}_${codeVoie}_${numero
     .toString()
     .padStart(5, '0')}`;
@@ -134,11 +137,14 @@ function createRow(obj: RowType, withComment: boolean): CsvRowType {
     id_ban_adresse: obj.banIds.adresse || '',
     toponyme: obj.nomVoie,
     lieudit_complement_nom: obj.nomToponyme || '',
-    numero: obj.numero.toString() || '',
+    numero:
+      obj.numero === null || obj.numero === undefined
+        ? obj.numeroTexte || ''
+        : obj.numero.toString(),
     suffixe: obj.suffixe || '',
     certification_commune: toCsvBoolean(obj.certifie),
     commune_insee: obj.codeCommune,
-    commune_nom: getCommune(obj.codeCommune)?.nom,
+    commune_nom: getCommune(obj.codeCommune)?.nom ?? obj.communeNom,
     commune_deleguee_insee: obj.communeDeleguee || null,
     commune_deleguee_nom:
       obj.communeDeleguee &&
@@ -219,6 +225,7 @@ export async function exportBalToCsv(
       n.positions.forEach((p) => {
         rows.push({
           codeCommune: baseLocale.commune,
+          communeNom: baseLocale.communeNom,
           communeDeleguee: n.communeDeleguee,
           banIds: {
             commune: baseLocale.banId,
@@ -228,6 +235,7 @@ export async function exportBalToCsv(
           communeNomsAlt: baseLocale.communeNomsAlt,
           codeVoie: v.codeVoie?.toLowerCase() || DEFAULT_CODE_VOIE,
           numero: n.numero,
+          numeroTexte: n.numeroTexte,
           suffixe: n.suffixe,
           certifie: n.certifie || false,
           updatedAt: n.updatedAt,
@@ -249,6 +257,7 @@ export async function exportBalToCsv(
       t.positions.forEach((p) => {
         rows.push({
           codeCommune: baseLocale.commune,
+          communeNom: baseLocale.communeNom,
           communeDeleguee: t.communeDeleguee,
           banIds: {
             commune: baseLocale.banId,
@@ -271,6 +280,7 @@ export async function exportBalToCsv(
           toponyme: t.banId,
         },
         codeCommune: baseLocale.commune,
+        communeNom: baseLocale.communeNom,
         communeDeleguee: t.communeDeleguee,
         communeNomsAlt: baseLocale.communeNomsAlt,
         codeVoie: t.codeVoie?.toLowerCase() || DEFAULT_CODE_VOIE,

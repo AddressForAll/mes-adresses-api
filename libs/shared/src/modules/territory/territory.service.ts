@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import * as brCatalog from './data/br.json';
 import * as usCatalog from './data/us.json';
 import { territoryCodeFromDivision } from './territory-code.util';
 
@@ -23,6 +24,7 @@ type CatalogFile = {
  * county below it — stays selectable regardless.
  */
 const SELECTABLE_FROM: Record<string, string> = {
+  br: 'municipality',
   us: 'county',
 };
 
@@ -64,6 +66,7 @@ type CountryIndex = {
 @Injectable()
 export class TerritoryService {
   private readonly catalogs: Record<string, CatalogFile> = {
+    br: brCatalog as unknown as CatalogFile,
     us: usCatalog as unknown as CatalogFile,
   };
 

@@ -35,6 +35,11 @@ function numeroToPointFeature(n: NumeroInBbox): FeatureTurf {
   return turf.feature(n.point, {
     id: n.id,
     numero: n.numero,
+    numeroTexte: n.numeroTexte,
+    numeroComplet:
+      n.numero === null
+        ? n.numeroTexte || 's/n'
+        : `${n.numero}${n.suffixe ? ` ${n.suffixe}` : ''}`,
     suffixe: n.suffixe,
     parcelles: n.parcelles,
     certifie: n.certifie,

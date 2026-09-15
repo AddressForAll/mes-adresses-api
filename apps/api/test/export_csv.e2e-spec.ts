@@ -116,6 +116,34 @@ describe('EXPORT CSV - codeVoie', () => {
       expect(response.text).toContain('08053_xxxx_00001');
     });
 
+    it('exports a numberless address without fabricating an interoperability key', async () => {
+      const balId = await createBal({
+        nom: 'bal',
+        commune: 'BR-test123',
+        communeNom: 'Cunha',
+      });
+      const voieId = await createVoie(balId, { nom: 'Estrada Rural' });
+      const numeroId = await createNumero(balId, voieId, {
+        numero: null,
+        numeroTexte: 'SN (SITIO)',
+        positions: [createPositions()],
+      });
+      const { banId } = await repositories.numeros.findOneBy({ id: numeroId });
+
+      const response = await request(app.getHttpServer())
+        .get(`/bases-locales/${balId}/csv`)
+        .set('token', token)
+        .expect(200);
+
+      const row = response.text
+        .split('\r\n')
+        .find((line) => line.includes(banId));
+      expect(row).toBeDefined();
+      expect(row.startsWith(';')).toBe(true);
+      expect(row).toContain(';SN (SITIO);');
+      expect(row).toContain(';BR-test123;Cunha;');
+    });
+
     it('Export CSV with toponyme having custom codeVoie - uses codeVoie in cle_interop', async () => {
       const balId = await createBal({ nom: 'bal', commune: '08053' });
       const { banId: communeUuid } = await repositories.bals.findOneBy({

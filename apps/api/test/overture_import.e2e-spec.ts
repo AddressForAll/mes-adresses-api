@@ -131,6 +131,34 @@ describe('OVERTURE IMPORT', () => {
       expect(withGers).toBe(total);
     });
 
+    it('persists numberless Overture points and their source designations', async () => {
+      const balId = await createBal({ nom: 'overture', commune: '91400' });
+      const bal = await repositories.bals.findOneBy({ id: balId });
+      const { payload, numberless } = transform.addressesToBal(
+        [
+          { ...rows[0], street: 'ESTRADA RURAL', number: 'SN (SITIO)' },
+          { ...rows[1], street: 'ESTRADA RURAL', number: '' },
+        ],
+        { locale: 'pt-BR', source: 'overture-test' },
+      );
+
+      await baseLocaleService.populate(bal, payload);
+
+      const stored = await repositories.numeros.find({
+        where: { balId },
+        order: { numeroTexte: 'DESC' },
+      });
+      expect(numberless).toBe(2);
+      expect(stored).toHaveLength(2);
+      expect(stored.map((n) => n.numero)).toEqual([null, null]);
+      expect(stored.map((n) => n.numeroTexte)).toEqual(
+        expect.arrayContaining(['SN (SITIO)', null]),
+      );
+      expect(stored.map((n) => n.numeroComplet)).toEqual(
+        expect.arrayContaining(['SN (SITIO)', 's/n']),
+      );
+    });
+
     it('computes a centroid and bbox for every voie', async () => {
       const balId = await createBal({ nom: 'overture', commune: '91400' });
       await populateFromFixture(balId);
@@ -247,11 +275,9 @@ describe('OVERTURE IMPORT', () => {
 
   describe('BALs created from the territory selectors', () => {
     const mockBanDistrict = (code: string) =>
-      axiosMock
-        .onGet(`${BAN_API_URL}/api/district/cog/${code}`)
-        .reply(200, {
-          response: [{ id: '00000000-0000-4000-8000-000000000000' }],
-        });
+      axiosMock.onGet(`${BAN_API_URL}/api/district/cog/${code}`).reply(200, {
+        response: [{ id: '00000000-0000-4000-8000-000000000000' }],
+      });
 
     it('stores the catalog name of a territory at creation', async () => {
       mockBanDistrict('US-197cfe35');

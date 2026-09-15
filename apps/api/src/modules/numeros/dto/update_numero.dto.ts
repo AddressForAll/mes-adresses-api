@@ -22,8 +22,16 @@ export class UpdateNumeroDTO {
   @IsInt({ message: 'numero:Le champ numéro doit être un entier' })
   @Min(0, { message: 'numero:Le champ numéro doit être 0 au minimum' })
   @Max(99998, { message: 'numero:Le champ numéro doit être inférieur à 99998' })
-  @ApiProperty({ required: false, nullable: false })
-  numero?: number;
+  @ApiProperty({ required: false, nullable: true })
+  numero?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @MaxLength(100, {
+    message: 'numeroTexte:Le champ ne peut pas dépasser 100 caractères',
+  })
+  @ApiProperty({ required: false, nullable: true })
+  numeroTexte?: string | null;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? null : value))

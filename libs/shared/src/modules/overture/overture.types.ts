@@ -85,11 +85,11 @@ export type OvertureSegmentRow = {
 
 /** Why a source row did not become a numero. */
 export type RejectionReport = {
-  /** street or number was empty/blank */
+  /** street was empty/blank */
   empty: number;
-  /** number had no leading digits at all ("s/n", "A12", block addressing) */
+  /** malformed geometry or another source value that cannot be retained */
   unparseable: number;
-  /** number outside 0..99998 (99999 is BAL's toponyme-only sentinel) */
+  /** legacy numeric rejection counter; out-of-range values are now text labels */
   outOfRange: number;
   /** same street+number at the same coordinates, already seen */
   duplicate: number;
@@ -109,6 +109,7 @@ export type OvertureImportReport = {
   scannedRows: number;
   voies: number;
   numeros: number;
+  numberless: number;
   rejected: RejectionReport;
   durationMs: number;
 };
