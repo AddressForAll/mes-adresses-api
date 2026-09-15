@@ -17,7 +17,10 @@ import {
   RejectionReport,
   emptyRejectionReport,
 } from '@/shared/modules/overture/overture.types';
-import { localeForCountry } from '@/shared/modules/overture/utils/street-name.util';
+import {
+  localeForCountry,
+  streetKey,
+} from '@/shared/modules/overture/utils/street-name.util';
 import { territoryCodeFromDivision } from '@/shared/modules/territory/territory-code.util';
 import { BaseLocaleService } from '@/modules/base_locale/base_locale.service';
 
@@ -84,29 +87,36 @@ export class ImportDivisionCommand {
     const voies: Partial<Voie>[] = [];
     const numeros: Partial<Numero>[] = [];
     const rejected = emptyRejectionReport();
+    let numberless = 0;
 
     for await (const batch of this.extract.readAddresses(filePath)) {
       const result = this.transform.addressesToBal(batch, { locale, source });
       voies.push(...result.payload.voies);
       numeros.push(...result.payload.numeros);
+      numberless += result.numberless;
       for (const key of Object.keys(rejected) as (keyof RejectionReport)[]) {
         rejected[key] += result.rejected[key];
       }
     }
 
     // A street split across two batches would otherwise become two voies.
-    const merged = this.mergeVoiesByName(voies, numeros);
+    const merged = this.mergeVoiesByName(voies, numeros, locale);
 
-    // 5. Optional streets fallback.
-    const streetsThreshold = optionalInt(values['streets-if-below'], 'streets-if-below') ?? 100;
+    // 5. Road names enrich address-derived names in every import. Optionally,
+    //    unmatched roads also become empty METRIQUE voies.
+    const streetsThreshold =
+      optionalInt(values['streets-if-below'], 'streets-if-below') ?? 100;
     const wantStreets = values.streets === true || count < streetsThreshold;
-    if (wantStreets) {
-      console.log('\nImporting named roads as METRIQUE voies…');
-      const segments = await this.extract.extractSegments({ division, release });
-      const result = this.transform.segmentsToBal(segments, { locale });
-      merged.voies.push(...result.payload.voies);
-      console.log(`${result.payload.voies.length} road(s) added.`);
-    }
+    console.log('\nMatching address streets with named roads…');
+    const segments = await this.extract.extractSegments({ division, release });
+    const roadResult = this.transform.enrichVoiesWithSegments(
+      merged.voies,
+      segments,
+      { locale, addUnmatched: wantStreets },
+    );
+    console.log(
+      `${roadResult.matched} name(s) enriched; ${roadResult.added} unmatched road(s) added.`,
+    );
 
     this.printReport({
       division,
@@ -114,6 +124,7 @@ export class ImportDivisionCommand {
       scanned: count,
       voies: merged.voies.length,
       numeros: merged.numeros.length,
+      numberless,
       rejected,
       durationMs: Date.now() - started,
     });
@@ -154,12 +165,13 @@ export class ImportDivisionCommand {
   private mergeVoiesByName(
     voies: Partial<Voie>[],
     numeros: Partial<Numero>[],
+    locale: string,
   ): { voies: Partial<Voie>[]; numeros: Partial<Numero>[] } {
     const canonicalByNom = new Map<string, Partial<Voie>>();
     const remap = new Map<string, string>();
 
     for (const voie of voies) {
-      const key = (voie.nom || '').toLocaleUpperCase();
+      const key = streetKey(voie.nom || '', locale);
       const existing = canonicalByNom.get(key);
       if (existing) {
         remap.set(voie.id, existing.id);
@@ -182,17 +194,23 @@ export class ImportDivisionCommand {
   private checkSize(division: OvertureDivision, force: boolean): boolean {
     const reasons: string[] = [];
     if (OVERSIZED_SUBTYPES.has(String(division.subtype))) {
-      reasons.push(`subtype "${division.subtype}" covers a whole country or more`);
+      reasons.push(
+        `subtype "${division.subtype}" covers a whole country or more`,
+      );
     }
     if (division.areaDeg2 > MAX_AREA_DEG2) {
       reasons.push(
-        `bounding box is ${division.areaDeg2.toFixed(1)} deg² (limit ${MAX_AREA_DEG2})`,
+        `bounding box is ${division.areaDeg2.toFixed(
+          1,
+        )} deg² (limit ${MAX_AREA_DEG2})`,
       );
     }
     if (reasons.length === 0) return true;
 
     if (force) {
-      console.warn(`\nWARNING: ${reasons.join('; ')}. Proceeding because --force.`);
+      console.warn(
+        `\nWARNING: ${reasons.join('; ')}. Proceeding because --force.`,
+      );
       return true;
     }
     console.error(
@@ -220,7 +238,7 @@ export class ImportDivisionCommand {
       const email = requireString(values.email, 'email');
       const commune =
         (values.commune as string) || this.deriveTerritoryCode(division);
-      const nom = (values.nom as string) || `Adresses de ${division.name}`;
+      const nom = (values.nom as string) || this.defaultBalName(division);
 
       const country = (division.country || 'fr').toLowerCase();
 
@@ -249,7 +267,9 @@ export class ImportDivisionCommand {
         `BAL ${bal.id} was imported from division ${bal.sourceDivisionId}, ` +
         `not ${division.id}.`;
       if (!force) {
-        console.error(`\n${message}\nRe-run with --force to replace it anyway.`);
+        console.error(
+          `\n${message}\nRe-run with --force to replace it anyway.`,
+        );
         return null;
       }
       console.warn(`\nWARNING: ${message} Proceeding because --force.`);
@@ -280,6 +300,12 @@ export class ImportDivisionCommand {
     return territoryCodeFromDivision(division.country, division.id);
   }
 
+  private defaultBalName(division: OvertureDivision): string {
+    return division.country?.toUpperCase() === 'BR'
+      ? `Endereços de ${division.name}`
+      : `Adresses de ${division.name}`;
+  }
+
   private editorUrl(bal: BaseLocale): string {
     const pattern =
       process.env.EDITOR_URL_PATTERN ||
@@ -288,7 +314,9 @@ export class ImportDivisionCommand {
   }
 
   private printDivision(division: OvertureDivision): void {
-    const where = [division.region, division.country].filter(Boolean).join(', ');
+    const where = [division.region, division.country]
+      .filter(Boolean)
+      .join(', ');
     console.log(
       `\nDivision: ${division.name} [${division.subtype}] ${where}\n` +
         `  id   ${division.id}\n` +
@@ -304,6 +332,7 @@ export class ImportDivisionCommand {
     scanned: number;
     voies: number;
     numeros: number;
+    numberless: number;
     rejected: RejectionReport;
     durationMs: number;
   }): void {
@@ -320,9 +349,10 @@ Import summary
   scanned     ${r.scanned} address rows
   voies       ${r.voies}
   numeros     ${r.numeros}
+  numberless  ${r.numberless}   (stored without a numeric house number)
   skipped     ${skipped}
     empty       ${r.rejected.empty}
-    unparseable ${r.rejected.unparseable}   (no leading digits — e.g. "s/n")
+    unparseable ${r.rejected.unparseable}
     outOfRange  ${r.rejected.outOfRange}
     duplicate   ${r.rejected.duplicate}   (same number at same coordinates)
   elapsed     ${(r.durationMs / 1000).toFixed(1)}s`);

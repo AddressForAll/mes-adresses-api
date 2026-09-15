@@ -99,7 +99,7 @@ describe('OvertureTransformService', () => {
       expect(noms).not.toContain('S OLIViA AVE');
     });
 
-    it('drops a street whose every number is unparseable', () => {
+    it('retains numberless addresses and their street', () => {
       const result = service.addressesToBal(
         [
           { ...rows[0], street: 'NOWHERE RD', number: 's/n' },
@@ -107,9 +107,28 @@ describe('OvertureTransformService', () => {
         ],
         { locale: 'en', source: 'overture-test' },
       );
-      expect(result.payload.voies).toHaveLength(0);
-      expect(result.payload.numeros).toHaveLength(0);
-      expect(result.rejected.unparseable).toBe(2);
+      expect(result.payload.voies).toHaveLength(1);
+      expect(result.payload.numeros).toHaveLength(2);
+      expect(result.payload.numeros.map((n) => n.numero)).toEqual([null, null]);
+      expect(result.payload.numeros.map((n) => n.numeroTexte)).toEqual([
+        's/n',
+        'S/N',
+      ]);
+      expect(result.numberless).toBe(2);
+      expect(result.rejected.unparseable).toBe(0);
+    });
+
+    it('retains a numberless point when the source designation is blank', () => {
+      const result = service.addressesToBal([{ ...rows[0], number: '   ' }], {
+        locale: 'en',
+        source: 'overture-test',
+      });
+
+      expect(result.payload.numeros[0]).toMatchObject({
+        numero: null,
+        numeroTexte: null,
+      });
+      expect(result.numberless).toBe(1);
     });
 
     it('collapses the same address arriving from two sources', () => {
@@ -154,7 +173,9 @@ describe('OvertureTransformService', () => {
   });
 
   describe('segmentsToBal', () => {
-    const segment = (over: Partial<OvertureSegmentRow> = {}): OvertureSegmentRow => ({
+    const segment = (
+      over: Partial<OvertureSegmentRow> = {},
+    ): OvertureSegmentRow => ({
       gersId: '11111111-1111-4111-8111-111111111111',
       name: 'N BLACKSTONE AVE',
       class: 'primary',
@@ -172,10 +193,14 @@ describe('OvertureTransformService', () => {
     it('produces METRIQUE voies carrying the trace and GERS id', () => {
       const { payload } = service.segmentsToBal([segment()]);
       expect(payload.voies).toHaveLength(1);
-      expect(payload.voies[0].typeNumerotation).toBe(TypeNumerotationEnum.METRIQUE);
+      expect(payload.voies[0].typeNumerotation).toBe(
+        TypeNumerotationEnum.METRIQUE,
+      );
       expect(payload.voies[0].nom).toBe('N Blackstone Ave');
       expect(payload.voies[0].trace.coordinates).toHaveLength(2);
-      expect(payload.voies[0].gersId).toBe('11111111-1111-4111-8111-111111111111');
+      expect(payload.voies[0].gersId).toBe(
+        '11111111-1111-4111-8111-111111111111',
+      );
       expect(payload.numeros).toHaveLength(0);
     });
 
@@ -190,9 +215,45 @@ describe('OvertureTransformService', () => {
     });
 
     it('rejects an unnamed road', () => {
-      const { payload, rejected } = service.segmentsToBal([segment({ name: '  ' })]);
+      const { payload, rejected } = service.segmentsToBal([
+        segment({ name: '  ' }),
+      ]);
       expect(payload.voies).toHaveLength(0);
       expect(rejected.empty).toBe(1);
+    });
+
+    it('restores an accented OSM spelling on an address-derived voie', () => {
+      const voies = [{ nom: 'Rua Sebastiao Fabricio' }];
+      const result = service.enrichVoiesWithSegments(
+        voies,
+        [segment({ name: 'Rua Sebastião Fabrício', segmentCount: 4 })],
+        { locale: 'pt-BR' },
+      );
+
+      expect(result).toEqual({ matched: 1, added: 0 });
+      expect(voies[0].nom).toBe('Rua Sebastião Fabrício');
+    });
+
+    it('does not add an unmatched road unless requested', () => {
+      const withoutFallback = [];
+      expect(
+        service.enrichVoiesWithSegments(withoutFallback, [segment()], {
+          locale: 'en',
+        }),
+      ).toEqual({ matched: 0, added: 0 });
+      expect(withoutFallback).toHaveLength(0);
+
+      const withFallback = [];
+      expect(
+        service.enrichVoiesWithSegments(withFallback, [segment()], {
+          locale: 'en',
+          addUnmatched: true,
+        }),
+      ).toEqual({ matched: 0, added: 1 });
+      expect(withFallback[0].nom).toBe('N Blackstone Ave');
+      expect(withFallback[0].typeNumerotation).toBe(
+        TypeNumerotationEnum.METRIQUE,
+      );
     });
   });
 });

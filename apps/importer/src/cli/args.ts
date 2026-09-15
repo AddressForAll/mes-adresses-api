@@ -70,7 +70,7 @@ IMPORT OPTIONS
   --email <addr>       Owner email for --create-bal (receives the edit link).
   --commune <code>     Territory code for --create-bal (default: derived from
                        the division id). Must satisfy COUNTRY_PROFILE.
-  --nom <text>         BAL name for --create-bal (default: "Adresses de <name>").
+  --nom <text>         BAL name for --create-bal (localized default from territory).
   --streets            Also import named roads as METRIQUE voies.
   --streets-if-below N Import roads automatically when fewer than N addresses
                        were found (default 100). Use 0 to disable.
@@ -85,9 +85,8 @@ COMMON OPTIONS
 
 NOTES
   Importing replaces the BAL's existing voies, numeros and toponymes.
-  House numbers must start with digits; systems that do not (Japanese block
-  addressing, Spanish "s/n") are reported as unparseable, because BAL stores
-  numero as an integer.
+  Address designations without a leading integer (such as "s/n") and rows with
+  no supplied number are retained as numberless address points.
 
 EXAMPLES
   yarn overture:find --name "Fresno" --country US --subtype county
@@ -96,14 +95,13 @@ EXAMPLES
 `;
 
 /** Parse a flag that should be a positive integer, or undefined if absent. */
-export function optionalInt(
-  value: unknown,
-  label: string,
-): number | undefined {
+export function optionalInt(value: unknown, label: string): number | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   const n = Number(value);
   if (!Number.isInteger(n) || n < 0) {
-    throw new Error(`--${label} must be a non-negative integer, got "${value}"`);
+    throw new Error(
+      `--${label} must be a non-negative integer, got "${value}"`,
+    );
   }
   return n;
 }

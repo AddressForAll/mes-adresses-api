@@ -79,12 +79,20 @@ export class OvertureExtractService {
    * supplied through a CTE defeats Parquet row-group pruning and turns a
    * targeted read into a full scan of the theme.
    */
-  private divisionCte(divisionId: string, release: string, bbox?: Bbox): string {
+  private divisionCte(
+    divisionId: string,
+    release: string,
+    bbox?: Bbox,
+  ): string {
     return `
       div AS (
         SELECT geometry AS geom
-        FROM read_parquet('${this.divisionsPath(release)}', filename=true, hive_partitioning=1)
-        WHERE id = ${quoteLiteral(divisionId)}${this.divisionBboxPredicate(bbox)}
+        FROM read_parquet('${this.divisionsPath(
+          release,
+        )}', filename=true, hive_partitioning=1)
+        WHERE id = ${quoteLiteral(divisionId)}${this.divisionBboxPredicate(
+          bbox,
+        )}
         LIMIT 1
       )`;
   }
@@ -110,8 +118,12 @@ export class OvertureExtractService {
     const filters = [
       `names.primary IS NOT NULL`,
       `lower(names.primary) LIKE lower(${quoteLiteral(`%${params.name}%`)})`,
-      params.country ? `country = ${quoteLiteral(params.country.toUpperCase())}` : null,
-      params.subtype ? `subtype = ${quoteLiteral(params.subtype.toLowerCase())}` : null,
+      params.country
+        ? `country = ${quoteLiteral(params.country.toUpperCase())}`
+        : null,
+      params.subtype
+        ? `subtype = ${quoteLiteral(params.subtype.toLowerCase())}`
+        : null,
     ].filter(Boolean);
 
     const sql = `
@@ -123,7 +135,9 @@ export class OvertureExtractService {
              (bbox).xmin AS xmin, (bbox).ymin AS ymin,
              (bbox).xmax AS xmax, (bbox).ymax AS ymax,
              ST_Area(geometry) AS area_deg2
-      FROM read_parquet('${this.divisionsPath(release)}', filename=true, hive_partitioning=1)
+      FROM read_parquet('${this.divisionsPath(
+        release,
+      )}', filename=true, hive_partitioning=1)
       WHERE ${filters.join('\n        AND ')}
       ORDER BY area_deg2 DESC
       LIMIT ${limit}`;
@@ -153,7 +167,9 @@ export class OvertureExtractService {
              (bbox).xmin AS xmin, (bbox).ymin AS ymin,
              (bbox).xmax AS xmax, (bbox).ymax AS ymax,
              ST_Area(geometry) AS area_deg2
-      FROM read_parquet('${this.divisionsPath(release)}', filename=true, hive_partitioning=1)
+      FROM read_parquet('${this.divisionsPath(
+        release,
+      )}', filename=true, hive_partitioning=1)
       WHERE id = ${quoteLiteral(id)}${this.divisionBboxPredicate(bbox)}
       LIMIT 1`;
 
@@ -208,13 +224,19 @@ export class OvertureExtractService {
                a.unit AS unit,
                a.postal_city AS postal_city,
                TRY(a.sources[1].dataset) AS source_dataset
-        FROM read_parquet('${this.addressesPath(release)}', filename=true, hive_partitioning=1) a,
+        FROM read_parquet('${this.addressesPath(
+          release,
+        )}', filename=true, hive_partitioning=1) a,
              div d
         WHERE a.bbox.xmin >= ${x0} AND a.bbox.xmax <= ${x1}
           AND a.bbox.ymin >= ${y0} AND a.bbox.ymax <= ${y1}
-          AND a.street IS NOT NULL AND a.number IS NOT NULL
+          AND a.street IS NOT NULL
           AND ST_Intersects(a.geometry, d.geom)
-        ${params.limit ? `LIMIT ${assertPositiveInt(params.limit, 'limit')}` : ''}
+        ${
+          params.limit
+            ? `LIMIT ${assertPositiveInt(params.limit, 'limit')}`
+            : ''
+        }
       ) TO '${filePath}' (FORMAT PARQUET, COMPRESSION ZSTD)`;
 
     const connection = await this.duckdb.connect();
@@ -310,7 +332,9 @@ export class OvertureExtractService {
                s.class AS class,
                s.geometry AS geom,
                ST_Length(s.geometry) AS len
-        FROM read_parquet('${this.transportationPath(release)}', filename=true, hive_partitioning=1) s,
+        FROM read_parquet('${this.transportationPath(
+          release,
+        )}', filename=true, hive_partitioning=1) s,
              div d
         WHERE s.bbox.xmin <= ${x1} AND s.bbox.xmax >= ${x0}
           AND s.bbox.ymin <= ${y1} AND s.bbox.ymax >= ${y0}
@@ -327,7 +351,9 @@ export class OvertureExtractService {
       FROM segs
       GROUP BY name
       ORDER BY total_len DESC
-      ${params.limit ? `LIMIT ${assertPositiveInt(params.limit, 'limit')}` : ''}`;
+      ${
+        params.limit ? `LIMIT ${assertPositiveInt(params.limit, 'limit')}` : ''
+      }`;
 
     const connection = await this.duckdb.connect();
     const rows = await this.duckdb.timed('segment extract', async () =>

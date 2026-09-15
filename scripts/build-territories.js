@@ -28,17 +28,32 @@ const S3_ROOT = 's3://overturemaps-us-west-2/release';
 const DEFAULT_RELEASE = '2026-07-22.0';
 const RELEASE_RE = /^\d{4}-\d{2}-\d{2}\.\d+$/;
 
-// The US profile. Adding a country means adding an entry here, a level list in
-// the frontend's catalogs, and nothing else.
+// Country profiles. Adding a country means adding an entry here, a level list
+// in the frontend's catalogs, and wiring the generated catalog into the API.
 const COUNTRIES = {
   us: {
     iso: 'US',
+    locale: 'en',
     // Overture subtype per selector level, largest first.
     levels: [
       { key: 'state', subtype: 'region' },
       { key: 'county', subtype: 'county' },
       { key: 'place', subtype: 'locality' },
     ],
+  },
+  br: {
+    iso: 'BR',
+    locale: 'pt-BR',
+    levels: [
+      { key: 'state', subtype: 'region' },
+      { key: 'municipality', subtype: 'locality' },
+    ],
+    // Overture contains a few settlement-like localities alongside the real
+    // municípios. Every real município has a Wikidata link; the junk does not.
+    requireWikidata: true,
+    // Overture nests Plano Piloto under Distrito Federal instead of exposing
+    // Brasília as a municipality. Treat DF as the selectable territory.
+    forceLeafNames: new Set(['Distrito Federal']),
   },
 };
 
@@ -81,6 +96,7 @@ async function main() {
         FROM read_parquet('${divisions}', hive_partitioning=1)
         WHERE country = '${profile.iso}' AND subtype IN (${subtypes})
           AND names.primary IS NOT NULL
+          ${profile.requireWikidata ? 'AND wikidata IS NOT NULL' : ''}
       ),
       a AS (
         SELECT division_id, id AS area_id,
@@ -136,7 +152,12 @@ async function main() {
     }
   }
 
-  const byName = (a, b) => a.node[1].localeCompare(b.node[1], 'en');
+  for (const entry of roots) {
+    if (profile.forceLeafNames?.has(entry.node[1])) entry.children = [];
+  }
+
+  const byName = (a, b) =>
+    a.node[1].localeCompare(b.node[1], profile.locale || 'en');
   const serialize = (entry) => {
     entry.children.sort(byName);
     return entry.children.length

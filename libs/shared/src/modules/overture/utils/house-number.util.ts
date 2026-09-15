@@ -32,6 +32,9 @@ const DASH_VARIANTS = /[‐-―−－]/g;
 /** Separators between the number and its suffix, stripped from the suffix. */
 const LEADING_SEPARATORS = /^[\s\-/.,·]+/u;
 
+/** Must stay aligned with CreateNumeroDTO / UpdateNumeroDTO. */
+const VALID_SUFFIX = /^[\da-z].{0,8}$/i;
+
 /**
  * Parse an Overture house number into BAL's (numero, suffixe) pair.
  *
@@ -48,13 +51,13 @@ const LEADING_SEPARATORS = /^[\s\-/.,·]+/u;
  * `normalizeSuffixe` (lowercase+trim) when persisting, so lowercasing here
  * would just hide where that responsibility lives.
  *
- * Known limitation: addressing systems whose primary component is not a leading
- * integer — Japanese block addressing, Spanish "s/n" (sin número), Irish
- * no-number rural addresses — cannot be represented, because `numeros.numero`
- * is `int NOT NULL`. Those rows are reported as `unparseable` rather than
- * silently dropped.
+ * Values without a leading integer are returned as `unparseable` to this
+ * low-level parser. The Overture transform retains them as numberless address
+ * points with the original string in `Numero.numeroTexte`.
  */
-export function parseHouseNumber(raw: string | null | undefined): ParsedHouseNumber {
+export function parseHouseNumber(
+  raw: string | null | undefined,
+): ParsedHouseNumber {
   if (raw === null || raw === undefined) {
     return { status: 'empty' };
   }
@@ -83,7 +86,8 @@ export function parseHouseNumber(raw: string | null | undefined): ParsedHouseNum
 
   // Strip the separator so BAL's own display logic re-applies its convention:
   // keeping "-14" from "12-14" would render as "12 --14".
-  const suffixe = match[2].replace(LEADING_SEPARATORS, '').trim();
+  const candidate = match[2].replace(LEADING_SEPARATORS, '').trim();
+  const suffixe = VALID_SUFFIX.test(candidate) ? candidate : '';
 
   return { status: 'ok', numero, suffixe: suffixe || null };
 }

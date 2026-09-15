@@ -176,6 +176,37 @@ describe('VOIE MODULE', () => {
       );
     });
 
+    it('creates an address without a numeric house number', async () => {
+      const balId = await createBal({ nom: 'bal', commune: '91400' });
+      const voieId = await createVoie(balId, { nom: 'route rurale' });
+
+      const response = await request(app.getHttpServer())
+        .post(`/voies/${voieId}/numeros`)
+        .send({
+          numero: null,
+          numeroTexte: 'SN (SITIO)',
+          positions: [
+            {
+              type: PositionTypeEnum.ENTREE,
+              source: 'overture-test',
+              point: { type: 'Point', coordinates: [8, 42] },
+            },
+          ],
+        })
+        .set('authorization', `Bearer ${token}`)
+        .expect(201);
+
+      expect(response.body.numero).toBeNull();
+      expect(response.body.numeroTexte).toBe('SN (SITIO)');
+
+      const stored = await repositories.numeros.findOneBy({
+        id: response.body.id,
+      });
+      expect(stored.numero).toBeNull();
+      expect(stored.numeroTexte).toBe('SN (SITIO)');
+      expect(stored.numeroComplet).toBe('SN (SITIO)');
+    });
+
     it('Create 201 numero with meta', async () => {
       const balId = await createBal({ nom: 'bal', commune: '91400' });
       const voieId = await createVoie(balId, { nom: 'rue de la paix' });

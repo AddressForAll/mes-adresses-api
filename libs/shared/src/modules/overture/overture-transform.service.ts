@@ -24,6 +24,7 @@ export type TransformPayload = {
 export type TransformResult = {
   payload: TransformPayload;
   rejected: RejectionReport;
+  numberless: number;
 };
 
 export type TransformOptions = {
@@ -48,6 +49,68 @@ export type TransformOptions = {
 @Injectable()
 export class OvertureTransformService {
   /**
+   * Apply transportation-theme spellings to address-derived voies.
+   *
+   * Address sources such as Brazil's CNEFE are all-caps and may have lost
+   * accents. OSM road names retain that information. `streetKey` lets both
+   * spellings meet without accents; `electDisplayName` chooses among multiple
+   * segment spellings using their source segment counts.
+   */
+  enrichVoiesWithSegments(
+    voies: Partial<Voie>[],
+    rows: OvertureSegmentRow[],
+    {
+      locale = 'en',
+      addUnmatched = false,
+    }: Pick<TransformOptions, 'locale'> & { addUnmatched?: boolean } = {},
+  ): { matched: number; added: number } {
+    const existing = new Map(
+      voies.map((voie) => [streetKey(voie.nom || '', locale), voie]),
+    );
+    const groups = new Map<
+      string,
+      { variants: Map<string, number>; representative: OvertureSegmentRow }
+    >();
+
+    for (const row of rows) {
+      const name = (row.name || '').trim();
+      if (!name) continue;
+      const key = streetKey(name, locale);
+      const group = groups.get(key) || {
+        variants: new Map<string, number>(),
+        representative: row,
+      };
+      group.variants.set(
+        name,
+        (group.variants.get(name) || 0) + Math.max(row.segmentCount || 1, 1),
+      );
+      groups.set(key, group);
+    }
+
+    let matched = 0;
+    let added = 0;
+    for (const [key, group] of groups) {
+      const displayName = electDisplayName(group.variants, locale);
+      const voie = existing.get(key);
+      if (voie) {
+        voie.nom = displayName;
+        matched++;
+        continue;
+      }
+      if (!addUnmatched) continue;
+
+      const result = this.segmentsToBal([group.representative], { locale });
+      if (result.payload.voies.length) {
+        result.payload.voies[0].nom = displayName;
+        voies.push(result.payload.voies[0]);
+        added++;
+      }
+    }
+
+    return { matched, added };
+  }
+
+  /**
    * Address points -> NUMERIQUE voies + numeros (one position each).
    *
    * No toponymes are produced: Overture addresses carry no notion of a
@@ -58,6 +121,7 @@ export class OvertureTransformService {
     { locale = 'en', source }: TransformOptions,
   ): TransformResult {
     const rejected = emptyRejectionReport();
+    let numberless = 0;
 
     type Group = {
       voieId: string;
@@ -92,15 +156,18 @@ export class OvertureTransformService {
       group.variants.set(street, (group.variants.get(street) ?? 0) + 1);
 
       const parsed = parseHouseNumber(row.number);
-      if (parsed.status !== 'ok') {
-        rejected[parsed.status]++;
-        continue;
-      }
+      const numero = parsed.status === 'ok' ? parsed.numero : null;
+      const suffixe = parsed.status === 'ok' ? parsed.suffixe : null;
+      const numeroTexte =
+        parsed.status === 'ok' ? null : (row.number || '').trim() || null;
+      if (parsed.status !== 'ok') numberless++;
 
       // Overture merges many sources, so the same physical address commonly
       // arrives more than once at near-identical coordinates. Without this the
       // editor shows visibly stacked pins.
-      const dedupKey = `${parsed.numero}|${parsed.suffixe ?? ''}|${row.lon.toFixed(6)},${row.lat.toFixed(6)}`;
+      const dedupKey = `${numero ?? ''}|${suffixe ?? ''}|${
+        numeroTexte ?? ''
+      }|${row.lon.toFixed(6)},${row.lat.toFixed(6)}`;
       if (group.seen.has(dedupKey)) {
         rejected.duplicate++;
         continue;
@@ -111,8 +178,9 @@ export class OvertureTransformService {
         id: new ObjectId().toHexString(),
         banId: uuid(),
         voieId: group.voieId,
-        numero: parsed.numero,
-        suffixe: parsed.suffixe,
+        numero,
+        suffixe,
+        numeroTexte,
         parcelles: [],
         // Overture data is third-party; only a local authority can certify.
         certifie: false,
@@ -139,8 +207,8 @@ export class OvertureTransformService {
     const numeros: Partial<Numero>[] = [];
 
     for (const group of groups.values()) {
-      // A street whose every number failed to parse would otherwise become a
-      // voie with no addresses — a phantom entry for the clerk to puzzle over.
+      // This only happens for an empty input group: numeric and numberless
+      // address points are both retained.
       if (group.numeros.length === 0) continue;
 
       voies.push({
@@ -152,7 +220,7 @@ export class OvertureTransformService {
       numeros.push(...group.numeros);
     }
 
-    return { payload: { voies, numeros, toponymes: [] }, rejected };
+    return { payload: { voies, numeros, toponymes: [] }, rejected, numberless };
   }
 
   /**
@@ -194,6 +262,10 @@ export class OvertureTransformService {
       });
     }
 
-    return { payload: { voies, numeros: [], toponymes: [] }, rejected };
+    return {
+      payload: { voies, numeros: [], toponymes: [] },
+      rejected,
+      numberless: 0,
+    };
   }
 }

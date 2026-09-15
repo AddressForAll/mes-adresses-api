@@ -5,6 +5,8 @@ import { territoryCodeFromDivision } from './territory-code.util';
 // imports were run with (`yarn overture:import --division …`).
 const FRESNO_DIVISION_ID = '197cfe35-a268-4674-b1ba-b68dc1b3ee6a';
 const FRESNO_CODE = 'US-197cfe35';
+const CUNHA_DIVISION_ID = '4b92ca07-3b25-460c-9510-70dcc7ec91fb';
+const CUNHA_CODE = 'BR-4b92ca07';
 
 describe('territoryCodeFromDivision', () => {
   it('prefixes the country and keeps 8 hex digits of the id', () => {
@@ -82,6 +84,43 @@ describe('TerritoryService', () => {
       .find((s) => s.nom === 'District of Columbia');
 
     expect(dc).toMatchObject({ hasChildren: false, selectable: true });
+  });
+
+  it('lists Brazilian states and gives Cunha the importer-derived code', () => {
+    const states = service.listTerritories('br');
+    const saoPaulo = states.find((s) => s.nom === 'São Paulo');
+
+    expect(states).toHaveLength(27);
+    expect(saoPaulo).toMatchObject({
+      level: 'state',
+      hasChildren: true,
+      selectable: false,
+    });
+
+    const cunha = service
+      .listTerritories('br', saoPaulo.code)
+      .find((m) => m.nom === 'Cunha');
+    expect(cunha).toMatchObject({
+      code: CUNHA_CODE,
+      divisionId: CUNHA_DIVISION_ID,
+      level: 'municipality',
+      path: [saoPaulo.code],
+      hasChildren: false,
+      selectable: true,
+    });
+    expect(service.findTerritory(CUNHA_CODE)).toEqual(cunha);
+  });
+
+  it('keeps Distrito Federal selectable as a leaf', () => {
+    const df = service
+      .listTerritories('br')
+      .find((s) => s.nom === 'Distrito Federal');
+
+    expect(df).toMatchObject({
+      level: 'state',
+      hasChildren: false,
+      selectable: true,
+    });
   });
 
   it('returns null for an unknown country or parent', () => {
