@@ -8,6 +8,7 @@ import { FindOptionsWhere, IsNull, Not } from 'typeorm';
 
 import {
   BaseLocale,
+  ImportTypeEnum,
   StatusBaseLocalEnum,
 } from '@/shared/entities/base_locale.entity';
 import { isTerritoryCode } from '@/shared/validators/territory_code.validator';
@@ -94,6 +95,22 @@ export class SearchQueryPipe implements PipeTransform {
       } else {
         throw new HttpException(
           'La valeur du champ "status" est invalide',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    if (query.importType) {
+      if (
+        typeof query.importType === 'string' &&
+        Object.values(ImportTypeEnum).includes(
+          query.importType as ImportTypeEnum,
+        )
+      ) {
+        res.filters.importType = query.importType as ImportTypeEnum;
+      } else {
+        throw new HttpException(
+          'La valeur du champ "importType" est invalide',
           HttpStatus.BAD_REQUEST,
         );
       }
