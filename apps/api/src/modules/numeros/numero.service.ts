@@ -174,6 +174,7 @@ export class NumeroService {
       .addSelect('numeros.numero', 'numero')
       .addSelect('numeros.numero_texte', 'numeroTexte')
       .addSelect('numeros.suffixe', 'suffixe')
+      .addSelect('numeros.postal_code', 'postalCode')
       .addSelect('numeros.parcelles', 'parcelles')
       .addSelect('numeros.certifie', 'certifie')
       .addSelect('numeros.voie_id', 'voieId')
@@ -240,6 +241,7 @@ export class NumeroService {
         banId: rawNumero.banId || uuid(),
         numero: rawNumero.numero,
         numeroTexte: rawNumero.numeroTexte?.trim() || null,
+        postalCode: rawNumero.postalCode?.trim() || null,
         comment: rawNumero.comment,
         toponymeId: rawNumero.toponymeId,
         voieId: rawNumero.voieId,

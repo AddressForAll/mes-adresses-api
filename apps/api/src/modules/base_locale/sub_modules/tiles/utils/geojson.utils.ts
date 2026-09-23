@@ -41,6 +41,7 @@ function numeroToPointFeature(n: NumeroInBbox): FeatureTurf {
         ? n.numeroTexte || 's/n'
         : `${n.numero}${n.suffixe ? ` ${n.suffixe}` : ''}`,
     suffixe: n.suffixe,
+    postalCode: n.postalCode,
     parcelles: n.parcelles,
     certifie: n.certifie,
     idVoie: n.voieId,

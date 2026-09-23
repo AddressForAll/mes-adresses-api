@@ -131,6 +131,20 @@ describe('OVERTURE IMPORT', () => {
       expect(withGers).toBe(total);
     });
 
+    it('stores Overture postal codes on numeros', async () => {
+      const balId = await createBal({ nom: 'overture', commune: '91400' });
+      const bal = await repositories.bals.findOneBy({ id: balId });
+      const { payload } = transform.addressesToBal(
+        [{ ...rows[0], postcode: '12530-000' }],
+        { locale: 'pt-BR', source: 'overture-test' },
+      );
+
+      await baseLocaleService.populate(bal, payload);
+
+      const stored = await repositories.numeros.findOneBy({ balId });
+      expect(stored.postalCode).toBe('12530-000');
+    });
+
     it('persists numberless Overture points and their source designations', async () => {
       const balId = await createBal({ nom: 'overture', commune: '91400' });
       const bal = await repositories.bals.findOneBy({ id: balId });

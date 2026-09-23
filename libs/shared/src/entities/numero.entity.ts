@@ -56,6 +56,11 @@ export class Numero extends GlobalEntity {
   @Column('text', { nullable: true })
   suffixe?: string | null;
 
+  /** Postal code supplied by the address source (CEP in Brazil). */
+  @ApiProperty({ required: false, nullable: true, type: String })
+  @Column('varchar', { name: 'postal_code', length: 32, nullable: true })
+  postalCode?: string | null;
+
   @ApiProperty()
   numeroComplet: string;
 

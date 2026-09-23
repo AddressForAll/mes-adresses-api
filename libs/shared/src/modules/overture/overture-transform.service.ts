@@ -181,6 +181,7 @@ export class OvertureTransformService {
         numero,
         suffixe,
         numeroTexte,
+        postalCode: (row.postcode || '').trim() || null,
         parcelles: [],
         // Overture data is third-party; only a local authority can certify.
         certifie: false,

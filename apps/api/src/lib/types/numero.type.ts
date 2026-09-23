@@ -4,6 +4,7 @@ export type NumeroInBbox = {
   numeroTexte: string | null;
   numeroComplet: string;
   suffixe: string;
+  postalCode: string | null;
   parcelles: string[];
   certifie: string;
   voieId: string;

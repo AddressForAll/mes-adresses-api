@@ -47,6 +47,15 @@ describe('OvertureTransformService', () => {
       }
     });
 
+    it('carries the source postal code onto the numero', () => {
+      const result = service.addressesToBal(
+        [{ ...rows[0], postcode: '12530-000' }],
+        { locale: 'pt-BR', source: 'overture-test' },
+      );
+
+      expect(result.payload.numeros[0].postalCode).toBe('12530-000');
+    });
+
     it('cross-links every numero to a voie in the payload', () => {
       const { payload } = run();
       const voieIds = new Set(payload.voies.map((v) => v.id));
