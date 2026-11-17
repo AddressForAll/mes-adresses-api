@@ -1,6 +1,6 @@
 {
   "name": "@etalab/api-bal",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "API permettant la gestion de bases d’adresses à l’échelon local",
   "contributors": [
     "Jérôme Desboeufs <jerome.desboeufs@data.gouv.fr>",
