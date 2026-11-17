@@ -580,6 +580,13 @@ export class BaseLocaleController {
     operationId: 'findNumeros',
   })
   @ApiParam({ name: 'baseLocaleId', required: true, type: String })
+  @ApiQuery({
+    name: 'hasSuffixeOrParcelles',
+    required: false,
+    type: Boolean,
+    description:
+      'Only numeros with a suffixe or parcelles: the ones the editor alerts can flag',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     type: Numero,
@@ -590,10 +597,12 @@ export class BaseLocaleController {
     @Query('select', new ParseArrayPipe({ optional: true }))
     select: Array<keyof Numero>,
     @Res() res: Response,
+    @Query('hasSuffixeOrParcelles') hasSuffixeOrParcelles?: string,
   ) {
     const numeros: Numero[] = await this.numeroService.findManyByBal(
       req.baseLocale.id,
       select,
+      hasSuffixeOrParcelles === 'true',
     );
     res.status(HttpStatus.OK).json(numeros);
   }

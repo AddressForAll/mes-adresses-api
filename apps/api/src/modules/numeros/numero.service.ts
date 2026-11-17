@@ -91,11 +91,26 @@ export class NumeroService {
     return numero;
   }
 
-  async findManyByBal(balId: string, select: string[]): Promise<Numero[]> {
+  /**
+   * `hasSuffixeOrParcelles` keeps only the numeros the editor's alerts can
+   * flag (invalid suffixe, unknown parcelle). The editor used to download
+   * every numero for them: 940k rows and ~17s for Distrito Federal, where
+   * none qualifies.
+   */
+  async findManyByBal(
+    balId: string,
+    select: string[],
+    hasSuffixeOrParcelles = false,
+  ): Promise<Numero[]> {
     const query = this.numerosRepository
       .createQueryBuilder('numeros')
       .select(select.map((field) => `numeros.${field}`))
       .where('numeros.bal_id = :balId', { balId });
+    if (hasSuffixeOrParcelles) {
+      query.andWhere(
+        "((numeros.suffixe IS NOT NULL AND numeros.suffixe <> '') OR cardinality(numeros.parcelles) > 0)",
+      );
+    }
     return query.getMany();
   }
 
