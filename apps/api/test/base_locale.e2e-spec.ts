@@ -1008,6 +1008,33 @@ describe('BASE LOCAL MODULE', () => {
     });
   });
 
+  describe('GET /bases-locales/:id/numeros', () => {
+    it('hasSuffixeOrParcelles keeps only numeros with a suffixe or parcelles', async () => {
+      const balId = await createBal({ nom: 'bal', commune: '27115' });
+      const voieId = await createVoie(balId, { nom: 'rue de hou' });
+      await createNumero(balId, voieId, { numero: 1 });
+      await createNumero(balId, voieId, { numero: 2, suffixe: '' });
+      await createNumero(balId, voieId, { numero: 3, parcelles: [] });
+      await createNumero(balId, voieId, { numero: 4, suffixe: 'bis' });
+      await createNumero(balId, voieId, {
+        numero: 5,
+        parcelles: ['12345000AA0002'],
+      });
+
+      const all = await request(app.getHttpServer())
+        .get(`/bases-locales/${balId}/numeros?select=numero`)
+        .expect(200);
+      expect(all.body).toHaveLength(5);
+
+      const filtered = await request(app.getHttpServer())
+        .get(
+          `/bases-locales/${balId}/numeros?select=numero&select=suffixe&hasSuffixeOrParcelles=true`,
+        )
+        .expect(200);
+      expect(filtered.body.map(({ numero }) => numero).sort()).toEqual([4, 5]);
+    });
+  });
+
   describe('GET /:baseLocaleId/voies', () => {
     it('GET default not deleted', async () => {
       const balId = await createBal({
