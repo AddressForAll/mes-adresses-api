@@ -17,6 +17,10 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class CommuneNom1789061765000 implements MigrationInterface {
   name = 'CommuneNom1789061765000';
 
+  // `import_type` is compared as text: TypeORM runs all pending migrations
+  // in one transaction, and on a fresh database 'overture' was only just added
+  // to the enum (1785312000001), which PostgreSQL won't let the same
+  // transaction use ("unsafe use of new value"). Same rows either way.
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `ALTER TABLE "bases_locales" ADD "commune_nom" text`,
@@ -25,7 +29,7 @@ export class CommuneNom1789061765000 implements MigrationInterface {
     await queryRunner.query(
       `UPDATE "bases_locales"
           SET "commune_nom" = regexp_replace("nom", '^Adresses de (.+?)( \\[démo\\])?$', '\\1')
-        WHERE "import_type" = 'overture'
+        WHERE "import_type"::text = 'overture'
           AND "commune_nom" IS NULL
           AND "nom" ~ '^Adresses de .+'`,
     );
