@@ -14,6 +14,7 @@ import {
 } from '@/shared/utils/cog.utils';
 import { roundCoordinate } from '@/shared/utils/coor.utils';
 import { BaseLocale } from '@/shared/entities/base_locale.entity';
+import { territoryCountryPrefix } from '@/shared/utils/geocode.utils';
 
 export const DEFAULT_CODE_VOIE = 'xxxx';
 export const DEFAULT_NUMERO_TOPONYME = 99999;
@@ -45,6 +46,8 @@ type RowType = {
   updatedAt: Date;
   commentNumero?: string;
   commentVoie?: string;
+  geocode?: string;
+  inscricaoImobiliaria?: string;
 };
 
 type CsvRowType = {
@@ -71,6 +74,8 @@ type CsvRowType = {
   date_der_maj: string;
   commentaire_numero?: string;
   commentaire_voie?: string;
+  geocode?: string;
+  inscricao_imobiliaria?: string;
 };
 
 function formatCleInterop(
@@ -123,8 +128,24 @@ function getCommuneDelegueeNom(
   return communeDeleguee?.nom;
 }
 
+// Fork-only columns, so a French BAL exports exactly as upstream: the geocode
+// for every non-French territory, the inscrição imobiliária for Brazil only.
+type ExtraColumns = { geocode: boolean; inscricaoImobiliaria: boolean };
+
+function extraColumnsFor(codeCommune: string): ExtraColumns {
+  const country = territoryCountryPrefix(codeCommune);
+  return {
+    geocode: Boolean(country),
+    inscricaoImobiliaria: country === 'BR',
+  };
+}
+
 /* eslint camelcase: off */
-function createRow(obj: RowType, withComment: boolean): CsvRowType {
+function createRow(
+  obj: RowType,
+  withComment: boolean,
+  extraColumns: ExtraColumns,
+): CsvRowType {
   const row: CsvRowType = {
     cle_interop: formatCleInterop(
       obj.codeCommune,
@@ -162,6 +183,14 @@ function createRow(obj: RowType, withComment: boolean): CsvRowType {
   if (withComment) {
     row.commentaire_numero = obj.commentNumero;
     row.commentaire_voie = obj.commentVoie;
+  }
+
+  if (extraColumns.geocode) {
+    row.geocode = obj.geocode || '';
+  }
+
+  if (extraColumns.inscricaoImobiliaria) {
+    row.inscricao_imobiliaria = obj.inscricaoImobiliaria || '';
   }
 
   if (obj.communeNomsAlt) {
@@ -247,6 +276,8 @@ export async function exportBalToCsv(
           position: p,
           commentNumero: n.comment,
           commentVoie: v.comment,
+          geocode: n.geocode,
+          inscricaoImobiliaria: n.inscricaoImobiliaria,
         });
       });
     }
@@ -292,7 +323,10 @@ export async function exportBalToCsv(
       });
     }
   });
-  const csvRows: CsvRowType[] = rows.map((row) => createRow(row, withComment));
+  const extraColumns = extraColumnsFor(baseLocale.commune);
+  const csvRows: CsvRowType[] = rows.map((row) =>
+    createRow(row, withComment, extraColumns),
+  );
   const headers: string[] = extractHeaders(csvRows);
 
   return getStream(

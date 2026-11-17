@@ -50,6 +50,10 @@ import { generateDocument } from '@/lib/document/document-generator';
 import { DocumentFormat } from '@/lib/document/types';
 import { GenerateCertificatDTO } from './dto/generate_certificat.dto';
 import { S3Service } from '@/shared/modules/s3/s3.service';
+import {
+  normalizeGeocode,
+  normalizeInscricaoImobiliaria,
+} from '@/shared/utils/geocode.utils';
 
 @Injectable()
 export class NumeroService {
@@ -175,6 +179,8 @@ export class NumeroService {
       .addSelect('numeros.numero_texte', 'numeroTexte')
       .addSelect('numeros.suffixe', 'suffixe')
       .addSelect('numeros.postal_code', 'postalCode')
+      .addSelect('numeros.geocode', 'geocode')
+      .addSelect('numeros.inscricao_imobiliaria', 'inscricaoImobiliaria')
       .addSelect('numeros.parcelles', 'parcelles')
       .addSelect('numeros.certifie', 'certifie')
       .addSelect('numeros.voie_id', 'voieId')
@@ -242,6 +248,10 @@ export class NumeroService {
         numero: rawNumero.numero,
         numeroTexte: rawNumero.numeroTexte?.trim() || null,
         postalCode: rawNumero.postalCode?.trim() || null,
+        geocode: normalizeGeocode(rawNumero.geocode),
+        inscricaoImobiliaria: normalizeInscricaoImobiliaria(
+          rawNumero.inscricaoImobiliaria,
+        ),
         comment: rawNumero.comment,
         toponymeId: rawNumero.toponymeId,
         voieId: rawNumero.voieId,
@@ -324,6 +334,10 @@ export class NumeroService {
       toponymeId: createNumeroDto.toponymeId || null,
       positions: createNumeroDto.positions || [],
       comment: createNumeroDto.comment || null,
+      geocode: normalizeGeocode(createNumeroDto.geocode),
+      inscricaoImobiliaria: normalizeInscricaoImobiliaria(
+        createNumeroDto.inscricaoImobiliaria,
+      ),
       parcelles: createNumeroDto.parcelles || [],
       certifie: createNumeroDto.certifie || false,
       communeDeleguee: createNumeroDto.communeDeleguee || null,
@@ -361,6 +375,16 @@ export class NumeroService {
     // On normalize le suffix
     if (updateNumeroDto.suffixe) {
       updateNumeroDto.suffixe = normalizeSuffixe(updateNumeroDto.suffixe);
+    }
+    // The global ValidationPipe doesn't transform, so the DTO's normalization
+    // only shaped what was validated: apply it to what gets stored too.
+    if (updateNumeroDto.geocode !== undefined) {
+      updateNumeroDto.geocode = normalizeGeocode(updateNumeroDto.geocode);
+    }
+    if (updateNumeroDto.inscricaoImobiliaria !== undefined) {
+      updateNumeroDto.inscricaoImobiliaria = normalizeInscricaoImobiliaria(
+        updateNumeroDto.inscricaoImobiliaria,
+      );
     }
     // On update le numéro dans postgres
     const numeroToSave: Numero = this.numerosRepository.create({

@@ -61,6 +61,23 @@ export class Numero extends GlobalEntity {
   @Column('varchar', { name: 'postal_code', length: 32, nullable: true })
   postalCode?: string | null;
 
+  /**
+   * AFA.codes geocode, stored bare (uppercase, no separators, no country
+   * prefix). Entered by hand; see `geocode.utils.ts` for the format.
+   */
+  @ApiProperty({ required: false, nullable: true, type: String })
+  @Column('varchar', { length: 16, nullable: true })
+  geocode?: string | null;
+
+  /** Brazilian property registration number, free text as entered. */
+  @ApiProperty({ required: false, nullable: true, type: String })
+  @Column('varchar', {
+    name: 'inscricao_imobiliaria',
+    length: 64,
+    nullable: true,
+  })
+  inscricaoImobiliaria?: string | null;
+
   @ApiProperty()
   numeroComplet: string;
 

@@ -11,8 +11,15 @@ import {
   Min,
   IsInt,
   Matches,
+  IsString,
 } from 'class-validator';
 
+import {
+  GEOCODE_PATTERN,
+  INSCRICAO_IMOBILIARIA_MAX_LENGTH,
+  normalizeGeocode,
+  normalizeInscricaoImobiliaria,
+} from '@/shared/utils/geocode.utils';
 import { Position } from '@/shared/entities/position.entity';
 import { ValidatorBal } from '@/shared/validators/validator_bal.validator';
 import { ValidatorTerritoryCode } from '@/shared/validators/territory_code.validator';
@@ -46,6 +53,25 @@ export class UpdateNumeroDTO {
   })
   @ApiProperty({ required: false, nullable: true })
   comment?: string;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeGeocode(value) : value,
+  )
+  @Matches(GEOCODE_PATTERN, { message: 'geocode:invalide' })
+  @ApiProperty({ required: false, nullable: true, type: String })
+  geocode?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeInscricaoImobiliaria(value) : value,
+  )
+  @IsString()
+  @MaxLength(INSCRICAO_IMOBILIARIA_MAX_LENGTH, {
+    message: 'inscricaoImobiliaria:trop_long',
+  })
+  @ApiProperty({ required: false, nullable: true, type: String })
+  inscricaoImobiliaria?: string | null;
 
   @IsOptional()
   @IsMongoId()

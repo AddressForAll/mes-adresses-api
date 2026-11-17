@@ -42,6 +42,11 @@ function numeroToPointFeature(n: NumeroInBbox): FeatureTurf {
         : `${n.numero}${n.suffixe ? ` ${n.suffixe}` : ''}`,
     suffixe: n.suffixe,
     postalCode: n.postalCode,
+    // Mostly null; omitted then so they cost nothing in the vector tiles.
+    ...(n.geocode && { geocode: n.geocode }),
+    ...(n.inscricaoImobiliaria && {
+      inscricaoImobiliaria: n.inscricaoImobiliaria,
+    }),
     parcelles: n.parcelles,
     certifie: n.certifie,
     idVoie: n.voieId,
