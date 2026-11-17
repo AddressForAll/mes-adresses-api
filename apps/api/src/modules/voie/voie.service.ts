@@ -16,7 +16,7 @@ import {
   SelectQueryBuilder,
   UpdateResult,
 } from 'typeorm';
-import { keyBy } from 'lodash';
+import { chunk, keyBy } from 'lodash';
 import * as turf from '@turf/turf';
 import { v4 as uuid } from 'uuid';
 import {
@@ -193,12 +193,16 @@ export class VoieService {
       return;
     }
     // On insert les voies
-    await this.voiesRepository
-      .createQueryBuilder()
-      .insert()
-      .into(Voie)
-      .values(voies)
-      .execute();
+    // In chunks: one INSERT per row set would exceed PostgreSQL's 65,535 bind
+    // parameters on a large territory (Distrito Federal has ~35k streets).
+    for (const voiesChunk of chunk(voies, 500)) {
+      await this.voiesRepository
+        .createQueryBuilder()
+        .insert()
+        .into(Voie)
+        .values(voiesChunk)
+        .execute();
+    }
   }
 
   public async update(voie: Voie, updateVoieDto: UpdateVoieDTO): Promise<Voie> {

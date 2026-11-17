@@ -144,6 +144,82 @@ describe('EXPORT CSV - codeVoie', () => {
       expect(row).toContain(';BR-test123;Cunha;');
     });
 
+    it('exports geocode and inscricao columns for a Brazilian BAL', async () => {
+      const balId = await createBal({
+        nom: 'bal',
+        commune: 'BR-test123',
+        communeNom: 'Cunha',
+      });
+      const voieId = await createVoie(balId, { nom: 'Rua Direita' });
+      const numeroId = await createNumero(balId, voieId, {
+        numero: 12,
+        geocode: 'R7FGJ2Z2',
+        inscricaoImobiliaria: '00012.345-6',
+        positions: [createPositions()],
+      });
+      await createNumero(balId, voieId, {
+        numero: 14,
+        positions: [createPositions()],
+      });
+      const { banId } = await repositories.numeros.findOneBy({ id: numeroId });
+
+      const response = await request(app.getHttpServer())
+        .get(`/bases-locales/${balId}/csv`)
+        .set('token', token)
+        .expect(200);
+
+      const [header, ...lines] = response.text.split('\r\n');
+      const columns = header.split(';');
+      const geocodeIndex = columns.indexOf('geocode');
+      const inscricaoIndex = columns.indexOf('inscricao_imobiliaria');
+      expect(geocodeIndex).toBeGreaterThan(-1);
+      expect(inscricaoIndex).toBeGreaterThan(-1);
+
+      const cells = lines.find((line) => line.includes(banId)).split(';');
+      expect(cells[geocodeIndex]).toEqual('R7FGJ2Z2');
+      expect(cells[inscricaoIndex]).toEqual('00012.345-6');
+    });
+
+    it('exports only the geocode column for a non-Brazilian foreign BAL', async () => {
+      const balId = await createBal({
+        nom: 'bal',
+        commune: 'US-197cfe35',
+        communeNom: 'Fresno County',
+      });
+      const voieId = await createVoie(balId, { nom: 'Main Street' });
+      await createNumero(balId, voieId, {
+        numero: 1,
+        positions: [createPositions()],
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(`/bases-locales/${balId}/csv`)
+        .set('token', token)
+        .expect(200);
+
+      const columns = response.text.split('\r\n')[0].split(';');
+      expect(columns).toContain('geocode');
+      expect(columns).not.toContain('inscricao_imobiliaria');
+    });
+
+    it('keeps the French export free of fork-only columns', async () => {
+      const balId = await createBal({ nom: 'bal', commune: '08053' });
+      const voieId = await createVoie(balId, { nom: 'rue de la paix' });
+      await createNumero(balId, voieId, {
+        numero: 1,
+        positions: [createPositions()],
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(`/bases-locales/${balId}/csv`)
+        .set('token', token)
+        .expect(200);
+
+      const columns = response.text.split('\r\n')[0].split(';');
+      expect(columns).not.toContain('geocode');
+      expect(columns).not.toContain('inscricao_imobiliaria');
+    });
+
     it('Export CSV with toponyme having custom codeVoie - uses codeVoie in cle_interop', async () => {
       const balId = await createBal({ nom: 'bal', commune: '08053' });
       const { banId: communeUuid } = await repositories.bals.findOneBy({

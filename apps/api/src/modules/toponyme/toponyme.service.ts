@@ -5,7 +5,7 @@ import {
   Injectable,
   forwardRef,
 } from '@nestjs/common';
-import { groupBy } from 'lodash';
+import { chunk, groupBy } from 'lodash';
 import {
   DeleteResult,
   FindOptionsSelect,
@@ -243,12 +243,16 @@ export class ToponymeService {
       return;
     }
     // On insert les toponymes
-    await this.toponymesRepository
-      .createQueryBuilder()
-      .insert()
-      .into(Toponyme)
-      .values(toponymes)
-      .execute();
+    // In chunks: one INSERT per row set would exceed PostgreSQL's 65,535 bind
+    // parameters on a large territory (Distrito Federal has ~35k streets).
+    for (const toponymesChunk of chunk(toponymes, 500)) {
+      await this.toponymesRepository
+        .createQueryBuilder()
+        .insert()
+        .into(Toponyme)
+        .values(toponymesChunk)
+        .execute();
+    }
     // On créer les positions
     const positions: Partial<Position>[] = [];
     for (const rawToponyme of rawToponymes) {

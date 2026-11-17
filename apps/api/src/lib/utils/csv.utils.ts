@@ -16,6 +16,13 @@ import { Toponyme } from '@/shared/entities/toponyme.entity';
 import { ObjectId } from 'mongodb';
 import { Logger } from '@/shared/utils/logger.utils';
 import {
+  INSCRICAO_IMOBILIARIA_MAX_LENGTH,
+  isValidGeocode,
+  normalizeGeocode,
+  normalizeInscricaoImobiliaria,
+  territoryCountryPrefix,
+} from '@/shared/utils/geocode.utils';
+import {
   DEFAULT_CODE_VOIE,
   DEFAULT_NUMERO_TOPONYME,
 } from '@/shared/modules/export_csv/utils/export_csv_bal.utils';
@@ -104,6 +111,24 @@ function extractDate(row: any) {
   if (row.parsedValues.date_der_maj) {
     return new Date(row.parsedValues.date_der_maj);
   }
+}
+
+// Fork-only columns written by the export (see export_csv_bal.utils.ts). The
+// validator ignores unknown columns but keeps them in rawValues. A geocode that
+// isn't letters and digits is dropped rather than failing the whole import.
+function extractGeocodeFields(
+  row: ValidateRowFullType,
+): Pick<Partial<Numero>, 'geocode' | 'inscricaoImobiliaria'> {
+  const geocode = normalizeGeocode(
+    row.rawValues.geocode,
+    territoryCountryPrefix(extractCodeCommune(row)),
+  );
+  return {
+    geocode: geocode && isValidGeocode(geocode) ? geocode : null,
+    inscricaoImobiliaria: normalizeInscricaoImobiliaria(
+      row.rawValues.inscricao_imobiliaria,
+    )?.slice(0, INSCRICAO_IMOBILIARIA_MAX_LENGTH),
+  };
 }
 
 function extractToponymes(rows: ValidateRowFullType[]): Partial<Toponyme>[] {
@@ -205,6 +230,7 @@ function extractNumeros(
         positions: extractPositions(numeroRows),
         parcelles: numeroRows[0].parsedValues.cad_parcelles,
         communeDeleguee: numeroRows[0].parsedValues.commune_deleguee_insee,
+        ...extractGeocodeFields(numeroRows[0]),
         createdAt: date,
         updatedAt: date,
       };

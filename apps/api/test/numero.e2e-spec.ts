@@ -154,6 +154,68 @@ describe('NUMERO', () => {
       );
     });
 
+    it('Update 200 stores the geocode bare and the inscricao as typed', async () => {
+      const balId = await createBal({ nom: 'bal', commune: 'BR-4b92ca07' });
+      const voieId = await createVoie(balId, { nom: 'Rua Direita' });
+      const numeroId = await createNumero(balId, voieId, { numero: 12 });
+
+      const response = await request(app.getHttpServer())
+        .put(`/numeros/${numeroId}`)
+        .send({
+          geocode: ' r7fgj-2z2 ',
+          inscricaoImobiliaria: ' 00012.345-6 ',
+        })
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(response.body.geocode).toEqual('R7FGJ2Z2');
+      expect(response.body.inscricaoImobiliaria).toEqual('00012.345-6');
+      const stored = await repositories.numeros.findOneBy({ id: numeroId });
+      expect(stored.geocode).toEqual('R7FGJ2Z2');
+      expect(stored.inscricaoImobiliaria).toEqual('00012.345-6');
+    });
+
+    it('Update 200 clears the geocode and inscricao with empty strings', async () => {
+      const balId = await createBal({ nom: 'bal', commune: 'BR-4b92ca07' });
+      const voieId = await createVoie(balId, { nom: 'Rua Direita' });
+      const numeroId = await createNumero(balId, voieId, {
+        numero: 12,
+        geocode: 'R7FGJ2Z2',
+        inscricaoImobiliaria: '0001',
+      });
+
+      await request(app.getHttpServer())
+        .put(`/numeros/${numeroId}`)
+        .send({ geocode: '', inscricaoImobiliaria: '  ' })
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const stored = await repositories.numeros.findOneBy({ id: numeroId });
+      expect(stored.geocode).toBeNull();
+      expect(stored.inscricaoImobiliaria).toBeNull();
+    });
+
+    it('Update 400 rejects a geocode with other characters or too long', async () => {
+      const balId = await createBal({ nom: 'bal', commune: 'BR-4b92ca07' });
+      const voieId = await createVoie(balId, { nom: 'Rua Direita' });
+      const numeroId = await createNumero(balId, voieId, { numero: 12 });
+
+      for (const geocode of ['R7FGJ/2Z2', '0123456789ABCDEFG']) {
+        const response = await request(app.getHttpServer())
+          .put(`/numeros/${numeroId}`)
+          .send({ geocode })
+          .set('authorization', `Bearer ${token}`)
+          .expect(400);
+        expect(response.body.message).toContain('geocode:invalide');
+      }
+
+      await request(app.getHttpServer())
+        .put(`/numeros/${numeroId}`)
+        .send({ inscricaoImobiliaria: 'x'.repeat(65) })
+        .set('authorization', `Bearer ${token}`)
+        .expect(400);
+    });
+
     it('Update 404 Numero Not Found', async () => {
       const updatedNumero: UpdateNumeroDTO = {
         numero: 100,
